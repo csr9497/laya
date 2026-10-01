@@ -1,0 +1,3484 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laya Studio - Interfaz de Decisiones y Routing</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              200: '#ddd6fe',
+              300: '#c4b5fd',
+              400: '#a78bfa',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              700: '#6d28d9',
+              800: '#5b21b6',
+              900: '#4c1d95',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
+    .canvas-node { pointer-events: auto !important; }
+  </style>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col antialiased transition-colors">
+
+  <!-- Header & Sticky Execution / Configuration Bar -->
+  <header class="bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 shadow-sm transition-colors">
+    <!-- Top Row: Branding, Status & Navigation -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-cyan-400 flex items-center justify-center shadow-md shadow-brand-500/20 text-white font-black text-lg tracking-tighter">
+          λ
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="font-bold text-base text-slate-900 dark:text-white leading-tight">Laya Studio</h1>
+            <span class="px-2 py-0.5 text-[11px] font-semibold bg-brand-100 dark:bg-brand-900/60 text-brand-700 dark:text-brand-300 rounded-full border border-brand-200 dark:border-brand-800">
+              RL Decision Router
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2 shrink-0">
+        <!-- Status indicator -->
+        <div id="statusBadge" class="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 text-xs font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Router Listo (~130ms)</span>
+        </div>
+
+        <!-- Top Execution Timing Badge -->
+        <div id="topTimingBadge" class="hidden text-xs font-mono px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+          ⚡ 0.0 ms
+        </div>
+
+        <!-- Configuration Modal Button (Dedicated modal, zero layout shift) -->
+        <button id="configToggleBtn" onclick="openConfigModal()" class="px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:text-brand-600 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition flex items-center space-x-1.5 border border-slate-200 dark:border-slate-700 shadow-sm" title="Abrir configuración de modelo y dispositivo">
+          <span>⚙️</span>
+          <span>Configuración</span>
+        </button>
+
+        <!-- Specs Trigger -->
+        <button onclick="toggleModal('specModal')" class="px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg transition" title="Especificación de Laya">
+          <span>Formato</span>
+        </button>
+
+        <!-- Dark mode toggle -->
+        <button onclick="toggleDarkMode()" class="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Cambiar tema">
+          <svg id="sunIcon" class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          <svg id="moonIcon" class="w-4 h-4 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        </button>
+
+        <!-- EXECUTION BUTTON: Rock-solid, fixed box, zero displacement on click! -->
+        <button id="runBtn" onclick="runPrediction()" class="h-9 px-3.5 rounded-xl bg-gradient-to-r from-brand-600 via-indigo-600 to-purple-600 hover:from-brand-500 hover:via-indigo-500 hover:to-purple-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-brand-500/20 flex items-center justify-center space-x-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed select-none shrink-0" style="min-width: 120px;">
+          <span class="w-4 h-4 flex items-center justify-center shrink-0">
+            <svg id="runIcon" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <svg id="runSpinner" class="w-4 h-4 animate-spin hidden shrink-0" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          </span>
+          <span id="runBtnText">Analizar</span>
+          <kbd class="ml-1 px-1.5 py-0.5 text-[10px] font-mono font-normal rounded bg-white/20 text-white/90 border border-white/20 tracking-tighter leading-none select-none">⌘↵</kbd>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-4 overflow-hidden">
+
+    <!-- Loading / Readiness Banner (Visible only while cold/warming up) -->
+    <div id="readinessBanner" class="hidden p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between shadow-sm transition-all duration-300">
+      <div class="flex items-center space-x-3">
+        <svg class="w-4 h-4 animate-spin text-amber-600 shrink-0" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <div>
+          <span class="font-bold">Cargando y preparando modelo Laya en memoria...</span>
+          <p id="readinessBannerMsg" class="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">El servidor está cargando los pesos y precalentando la memoria para asegurar baja latencia (~130ms).</p>
+        </div>
+      </div>
+      <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-200/60 dark:bg-amber-900/60 font-semibold shrink-0">Iniciando</span>
+    </div>
+
+    <!-- Content Columns Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden">
+
+    <!-- LEFT COLUMN: Content Input & Question Builder (7 cols) -->
+    <section class="lg:col-span-7 flex flex-col gap-5 overflow-y-auto custom-scrollbar pr-1">
+
+      <!-- 1. State / Content Box -->
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm p-4 sm:p-5 transition">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2">
+            <span class="flex items-center justify-center w-6 h-6 rounded-full bg-brand-100 dark:bg-brand-900/60 text-brand-700 dark:text-brand-300 font-bold text-xs">1</span>
+            <label for="stateInput" class="font-semibold text-sm text-slate-900 dark:text-white">Contenido a Analizar (<code class="text-xs text-brand-600 dark:text-brand-400">state</code>)</label>
+          </div>
+          <span id="charCount" class="text-xs text-slate-400">0 caracteres</span>
+        </div>
+
+        <!-- Sample buttons -->
+        <div class="mb-3 flex items-center space-x-1.5 flex-wrap gap-y-1.5 text-xs">
+          <span class="text-slate-400 text-xs mr-1 font-medium">Ejemplos rápidos:</span>
+          <button onclick="loadSample('facturacion')" class="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/50 dark:hover:text-brand-300 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 transition">
+            💳 Cobro / Reembolso
+          </button>
+          <button onclick="loadSample('soporte_tecnico')" class="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/50 dark:hover:text-brand-300 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 transition">
+            🔥 Caída Técnica (502)
+          </button>
+          <button onclick="loadSample('phishing')" class="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/50 dark:hover:text-brand-300 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 transition">
+            🎣 Correo Phishing
+          </button>
+          <button onclick="loadSample('jailbreak')" class="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/50 dark:hover:text-brand-300 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 transition">
+            🛡️ Ataque Jailbreak (DAN)
+          </button>
+        </div>
+
+        <textarea id="stateInput" rows="4" placeholder="Ingresa aquí el texto, ticket de soporte, correo, consulta o prompt que deseas que Laya evalúe..."
+          class="w-full p-3.5 text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition placeholder-slate-400 dark:placeholder-slate-500"></textarea>
+      </div>
+
+      <!-- 2. Question Builder (Buttons to Add Questions) -->
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm p-4 sm:p-5 transition flex flex-col gap-3.5">
+        
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center space-x-2">
+            <span class="flex items-center justify-center w-6 h-6 rounded-full bg-brand-100 dark:bg-brand-900/60 text-brand-700 dark:text-brand-300 font-bold text-xs">2</span>
+            <div>
+              <h2 class="font-semibold text-sm text-slate-900 dark:text-white">Preguntas para Laya (<code class="text-xs text-brand-600 dark:text-brand-400">questions</code>)</h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Abre el Canvas para editar o usa las opciones rápidas:</p>
+            </div>
+          </div>
+          
+          <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+            <!-- Canvas Button (Label: Canvas only) -->
+            <button onclick="openMindMap()" class="px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 font-semibold text-xs flex items-center space-x-1.5 transition shadow-sm" title="Abrir lienzo interactivo">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+              <span>Canvas</span>
+            </button>
+
+            <!-- Presets Button (opens and auto-hides) -->
+            <button onclick="openPresetsModal()" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium text-xs flex items-center space-x-1 border border-slate-200 dark:border-slate-700 transition" title="Explorar plantillas estándar de Laya">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+              <span>Plantillas</span>
+            </button>
+
+            <!-- Catalog Button (opens modal like presets) -->
+            <button onclick="openCatalogModal()" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium text-xs flex items-center space-x-1 border border-slate-200 dark:border-slate-700 transition" title="Explorar catálogo de preguntas prearmadas">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+              <span>Catálogo</span>
+            </button>
+
+            <!-- Quick Questions Button (opens modal like presets) -->
+            <button onclick="openQuickTypeModal()" class="px-2.5 py-1.5 rounded-xl bg-brand-50 dark:bg-brand-950/40 hover:bg-brand-100 dark:hover:bg-brand-900/50 border border-brand-200 dark:border-brand-800 text-brand-700 dark:text-brand-300 font-medium text-xs flex items-center space-x-1 transition" title="Añadir una nueva pregunta personalizada">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>Nueva Pregunta</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Active Questions List: SUMMARIZED / RESUMIDA -->
+        <div class="border-t border-slate-200 dark:border-slate-700 pt-3">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+              <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Preguntas Activas (Resumen):</h3>
+              <span id="questionCountBadge" class="px-2 py-0.2 text-[11px] font-semibold bg-brand-50 dark:bg-brand-950/50 text-brand-600 dark:text-brand-300 rounded-full border border-brand-200 dark:border-brand-800">
+                0 preguntas
+              </span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button id="editorReturnRecentBtn" type="button" onclick="returnToRecentResult()" class="hidden px-2 py-0.5 rounded-lg bg-brand-100 hover:bg-brand-200 dark:bg-brand-900/60 dark:hover:bg-brand-800 text-brand-700 dark:text-brand-300 font-semibold text-xs transition flex items-center space-x-1" title="Restaurar la consulta más reciente">
+                <span>⚡ Volver a Reciente</span>
+              </button>
+              <button onclick="clearAllQuestions()" class="text-xs text-red-500 hover:underline">Limpiar todas</button>
+              <span class="text-slate-300 dark:text-slate-600">|</span>
+              <button onclick="toggleModal('jsonPreviewModal')" class="text-xs text-brand-600 dark:text-brand-400 hover:underline flex items-center space-x-1">
+                <span>Ver Código Python</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Summarized question list container -->
+          <div id="activeQuestionsList" class="flex flex-col gap-2 max-h-80 overflow-y-auto custom-scrollbar pr-1">
+            <!-- Active question cards rendered via JS -->
+            <div class="text-center py-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-slate-400 text-xs">
+              No has agregado ninguna pregunta todavía.<br>Haz clic en una pregunta prearmada o en "📚 Plantillas" para comenzar.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- RIGHT COLUMN: Results Section (Default Table View) (5 cols) -->
+    <section class="lg:col-span-5 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+
+      <div id="resultsCard" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm p-4 sm:p-5 transition flex flex-col gap-3.5">
+        
+        <!-- LEVEL 1: PRIMARY TABS (Reciente vs Historial) -->
+        <div class="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-slate-200 dark:border-slate-700">
+          <div class="flex items-center p-1 bg-slate-100 dark:bg-slate-900/90 rounded-xl space-x-1">
+            <button id="primaryTabBtnReciente" type="button" onclick="switchPrimaryTab('reciente')" class="py-1.5 px-3.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-sm border border-slate-200/80 dark:border-slate-700">
+              <span>⚡ Reciente</span>
+            </button>
+            <button id="primaryTabBtnHistorial" type="button" onclick="switchPrimaryTab('historial')" class="py-1.5 px-3.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+              <span>📜 Historial</span>
+              <span id="historyCountBadge" class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">0</span>
+            </button>
+          </div>
+
+          <div id="resultTimingBadge" class="hidden text-xs font-mono px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+            ⚡ 0.0 ms
+          </div>
+        </div>
+
+        <!-- PANEL 1: RECIENTE (Shows current execution with Resultado / Detalle / JSON tabs) -->
+        <div id="mainTabContentReciente" class="flex flex-col gap-3">
+          
+          <!-- Historical View Return Banner (Visible when viewing a historical result) -->
+          <div id="recentViewingHistoryBanner" class="hidden p-2.5 px-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-between text-xs animate-in fade-in gap-2 shadow-sm">
+            <div class="flex items-center space-x-2 text-amber-900 dark:text-amber-200 min-w-0">
+              <span class="text-base">📜</span>
+              <div class="truncate">
+                <span class="font-medium">Viendo consulta de historial:</span>
+                <span id="recentViewingHistoryInfo" class="font-mono font-bold text-amber-700 dark:text-amber-300 ml-1"></span>
+              </div>
+            </div>
+            <button type="button" onclick="returnToRecentResult()" class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs shadow-sm transition flex items-center space-x-1 shrink-0" title="Restaurar el último resultado analizado">
+              <span>⚡ Volver al resultado reciente</span>
+            </button>
+          </div>
+
+          <!-- LEVEL 2: SUB-TABS (Resultado | Detalle | JSON) -->
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700/60">
+            <div class="flex items-center space-x-1">
+              <button id="tabBtnTable" type="button" onclick="switchResultTab('table')" class="py-1 px-3 rounded-lg text-xs font-bold bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 transition">
+                Resultado
+              </button>
+              <button id="tabBtnDetail" type="button" onclick="switchResultTab('detail')" class="py-1 px-2.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition">
+                Detalle
+              </button>
+              <button id="tabBtnRaw" type="button" onclick="switchResultTab('raw')" class="py-1 px-2.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition">
+                JSON
+              </button>
+            </div>
+
+            <!-- Routing details box if present -->
+            <div id="routingInfoBox" class="hidden flex items-center space-x-1.5 text-[11px] font-mono text-slate-500">
+              <span class="text-slate-400">Modelo:</span>
+              <span id="routedModelBadge" class="font-bold text-indigo-600 dark:text-indigo-400">english</span>
+              <span id="routedReasonText" class="text-slate-400 truncate max-w-xs"></span>
+            </div>
+          </div>
+
+          <!-- Warning Notice if any -->
+          <div id="warningNotice" class="hidden p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 flex items-center space-x-2">
+            <span>⚠️</span>
+            <span id="warningText"></span>
+          </div>
+
+          <!-- SUB-TAB 1 (DEFAULT): TABLE VIEW -->
+          <div id="tabContentTable" class="flex flex-col gap-2 min-h-[320px]">
+            <div id="emptyTablePlaceholder" class="flex flex-col items-center justify-center py-16 text-center text-slate-400">
+              <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-3 text-slate-300 dark:text-slate-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              </div>
+              <p class="text-sm font-medium text-slate-600 dark:text-slate-300">Aún no hay resultados para tabular</p>
+              <p class="text-xs text-slate-400 max-w-xs mt-1">Configura las preguntas a la izquierda y presiona "Analizar".</p>
+            </div>
+
+            <div id="tableWrapper" class="hidden overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+                    <th class="py-2.5 px-2">Pregunta</th>
+                    <th class="py-2.5 px-2">Tipo</th>
+                    <th class="py-2.5 px-2">Decisión / Valor</th>
+                    <th class="py-2.5 px-2">Probabilidad</th>
+                    <th class="py-2.5 px-2">Confianza</th>
+                  </tr>
+                </thead>
+                <tbody id="tableSummaryBody" class="divide-y divide-slate-100 dark:divide-slate-700/60 font-sans">
+                  <!-- Injected dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 2: DETALLE (Friendly Cards View) -->
+          <div id="tabContentDetail" class="hidden flex flex-col gap-3 min-h-[320px]">
+            <div id="emptyDetailPlaceholder" class="flex flex-col items-center justify-center py-16 text-center text-slate-400">
+              <p class="text-sm font-medium text-slate-600 dark:text-slate-300">Aún no hay detalles que mostrar</p>
+            </div>
+            <div id="detailCardsContainer" class="flex flex-col gap-3 hidden">
+              <!-- Rendered Answer Cards injected here -->
+            </div>
+          </div>
+
+          <!-- SUB-TAB 3: JSON Raw -->
+          <div id="tabContentRaw" class="hidden">
+            <div class="relative">
+              <button type="button" onclick="copyToClipboard('rawJsonCode')" class="absolute top-2 right-2 px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white text-[11px] font-mono transition">
+                Copiar JSON
+              </button>
+              <pre class="bg-slate-900 text-slate-200 p-3 rounded-xl text-xs overflow-x-auto max-h-96 custom-scrollbar"><code id="rawJsonCode">{}</code></pre>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- PANEL 2: HISTORIAL (Chronological List by Execution Order, No Search Bar) -->
+        <div id="mainTabContentHistorial" class="hidden flex flex-col gap-3">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700/60">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-bold text-slate-700 dark:text-slate-200">Consultas Anteriores</span>
+              <span class="text-[11px] text-slate-400 font-mono">(orden de ejecución)</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button id="historyHeaderReturnBtn" type="button" onclick="returnToRecentResult()" class="hidden px-2.5 py-1 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs transition flex items-center space-x-1 shadow-sm" title="Volver al resultado más reciente">
+                <span>⚡ Volver a Reciente</span>
+              </button>
+              <button type="button" onclick="clearAllHistory()" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 font-medium transition flex items-center space-x-1" title="Borrar todo el historial">
+                <span>🗑️ Vaciar Historial</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- History loaded return banner (Visible when a history entry is loaded in the editor) -->
+          <div id="historyLoadedBanner" class="hidden p-3 rounded-xl bg-brand-50 dark:bg-brand-950/40 border border-brand-200 dark:border-brand-800 flex items-center justify-between text-xs animate-in fade-in gap-2 shadow-sm">
+            <div class="flex items-center space-x-2 text-brand-900 dark:text-brand-200 min-w-0">
+              <span class="text-base">📌</span>
+              <div class="truncate">
+                <span class="font-medium">Consulta cargada en editor:</span>
+                <span id="historyLoadedInfo" class="font-mono font-bold text-brand-700 dark:text-brand-300 ml-1"></span>
+              </div>
+            </div>
+            <button type="button" onclick="returnToRecentResult()" class="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-sm transition flex items-center space-x-1.5 shrink-0" title="Restaurar el último resultado analizado">
+              <span>⚡ Volver al resultado reciente</span>
+            </button>
+          </div>
+
+          <!-- Chronological History List -->
+          <div id="mainHistoryListContainer" class="flex flex-col gap-2.5 min-h-[300px] max-h-[620px] overflow-y-auto custom-scrollbar pr-1">
+            <!-- Injected dynamically in execution order -->
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    </div><!-- End Content Columns Grid -->
+
+  </main>
+
+  <!-- MODAL: FULL-SCREEN INTERACTIVE MIND MAP CANVAS -->
+  <div id="mindMapModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden flex-col animate-in fade-in duration-150">
+    <!-- Mind Map Top Toolbar -->
+    <div class="relative z-40 h-14 px-3 sm:px-5 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between shrink-0 gap-2 overflow-x-auto custom-scrollbar">
+      <div class="flex items-center space-x-2.5 shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-600 via-indigo-600 to-brand-500 flex items-center justify-center text-white text-base shadow-sm">
+          🧠
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h2 class="text-sm font-bold text-white">Canvas de Decisiones Laya</h2>
+            <span id="mindMapStatsBadge" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-950 text-purple-300 border border-purple-800 font-mono">
+              0 preguntas
+            </span>
+          </div>
+          <p class="text-[10px] text-slate-400">Edita directamente en el lienzo. Arrastra nodos o selecciona para borrar.</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-1.5 shrink-0">
+        <!-- Add Questions Directly on Canvas -->
+        <button type="button" onclick="addCanvasNewQuestion('choice')" class="px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center space-x-1 shadow-sm transition" title="Crear nueva pregunta de opción en el canvas">
+          <span>+ Opción</span>
+        </button>
+        <button type="button" onclick="addCanvasNewQuestion('score')" class="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center space-x-1 shadow-sm transition" title="Crear nueva pregunta de escala en el canvas">
+          <span>+ Escala</span>
+        </button>
+        <button type="button" onclick="addCanvasNewQuestion('noul')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center space-x-1 shadow-sm transition" title="Crear nueva pregunta binaria en el canvas">
+          <span>+ Sí/No</span>
+        </button>
+        <button type="button" onclick="openCatalogModal()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition flex items-center space-x-1" title="Añadir pregunta del catálogo">
+          <span>📋 Catálogo</span>
+        </button>
+
+        <div class="h-6 w-px bg-slate-700 mx-1"></div>
+
+        <!-- Camera Navigation & Viewport Alignment Controls -->
+        <button type="button" onclick="focusOnQuestions()" class="px-2.5 py-1.5 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 border border-indigo-700 text-xs font-semibold transition flex items-center space-x-1" title="Mover la vista directamente hacia las preguntas">
+          <span>👀 Ir a Preguntas</span>
+        </button>
+        <button type="button" onclick="focusOnRoot()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition flex items-center space-x-1" title="Mover la vista hacia el input (estado raíz)">
+          <span>🎯 Ir a Input</span>
+        </button>
+        <button type="button" onclick="fitCanvasView()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition flex items-center space-x-1" title="Ajustar zoom y centrar todos los nodos en pantalla">
+          <span>📐 Ajustar Vista</span>
+        </button>
+        <button type="button" id="canvasLockBtn" onclick="toggleCanvasViewLock()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition flex items-center space-x-1 border border-slate-700" title="Bloquear o desbloquear el movimiento y paneo del lienzo">
+          <span id="canvasLockBtnText">🔓 Vista Libre</span>
+        </button>
+
+        <div class="h-6 w-px bg-slate-700 mx-1"></div>
+
+        <!-- Run Prediction Directly on Canvas -->
+        <button type="button" onclick="runPredictionFromCanvas()" id="canvasRunBtn" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition" title="Ejecutar análisis Laya y ver decisiones sobre el árbol">
+          <span>⚡ Analizar</span>
+        </button>
+
+        <div class="h-6 w-px bg-slate-700 mx-1"></div>
+
+        <!-- Zoom controls -->
+        <button type="button" onclick="mindMapZoomIn()" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Acercar (+)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+        </button>
+        <button type="button" onclick="mindMapZoomOut()" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Alejar (-)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6"/></svg>
+        </button>
+
+        <div class="h-6 w-px bg-slate-700 mx-1"></div>
+
+        <button type="button" onclick="closeMindMap()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium transition">
+          ✕ Cerrar
+        </button>
+      </div>
+    </div>
+
+    <!-- Canvas Viewport -->
+    <div id="mindMapViewport" class="flex-1 relative overflow-hidden bg-slate-950 cursor-grab active:cursor-grabbing">
+      <!-- Dots Grid Pattern -->
+      <div class="absolute inset-0 pointer-events-none opacity-20" style="background-image: radial-gradient(#94a3b8 1.2px, transparent 1.2px); background-size: 24px 24px;"></div>
+
+      <!-- Floating Selection & Bulk Delete Toolbar (Appears dynamically when questions are selected) -->
+      <div id="canvasSelectionToolbar" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-2xl bg-slate-900/95 border-2 border-red-500/80 shadow-2xl backdrop-blur-md items-center space-x-3 text-white transition animate-in fade-in slide-in-from-top-2 duration-150">
+        <div class="flex items-center space-x-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+          <span id="canvasSelectionCount" class="text-xs font-bold font-mono text-red-300">0 seleccionadas</span>
+        </div>
+        <div class="h-4 w-px bg-slate-700"></div>
+        <button type="button" onclick="deleteSelectedCanvasQuestions()" class="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center space-x-1.5 shadow-sm transition">
+          <span>🗑️ Borrar Seleccionadas</span>
+        </button>
+        <button type="button" onclick="selectAllCanvasQuestions()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition">
+          ☑️ Seleccionar Todas
+        </button>
+        <button type="button" onclick="clearSelectedCanvasQuestions()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition">
+          Desmarcar
+        </button>
+      </div>
+
+      <!-- Canvas World (Transformable container with SVG connections and Native HTML cards) -->
+      <div id="canvasWorld" class="absolute top-0 left-0 pointer-events-none" style="width: 10000px; height: 10000px; transform-origin: 0 0;">
+        <!-- SVG Connections Layer -->
+        <svg id="canvasConnectionsSvg" class="absolute top-0 left-0 pointer-events-none" style="width: 10000px; height: 10000px; z-index: 1;"></svg>
+
+        <!-- HTML Interactive Nodes Layer -->
+        <div id="canvasNodesLayer" class="absolute top-0 left-0 w-full h-full pointer-events-none" style="z-index: 2;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIGURATION (OPENS ON BUTTON, ZERO LAYOUT COLLAPSE) -->
+  <div id="configModal" class="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col gap-5 animate-in fade-in duration-150">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center text-lg shadow-sm">
+            ⚙️
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-slate-900 dark:text-white">Configuración del Router</h3>
+            <p class="text-xs text-slate-500">Parámetros de inferencia y dispositivo de ejecución.</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeConfigModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg transition" title="Cerrar modal">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Config Form Fields -->
+      <div class="flex flex-col gap-4 text-xs">
+        <!-- Model Selection -->
+        <div class="flex flex-col gap-1.5">
+          <label for="modelSelect" class="font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+            <span>Modelo de Embeddings / Router:</span>
+            <span class="text-[10px] text-brand-600 dark:text-brand-400 font-mono font-semibold">Laya Core</span>
+          </label>
+          <div class="relative">
+            <select id="modelSelect" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer transition">
+              <option value="auto">Automático (Router Semántico Inteligente)</option>
+              <option value="english">English (ModernBERT - Baja Latencia ~130ms)</option>
+              <option value="multilingual">Multilingual (mmBERT - Soporte Multilingüe)</option>
+            </select>
+          </div>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">
+            El modo automático detecta el idioma del contenido ingresado y selecciona la arquitectura más rápida y precisa.
+          </p>
+        </div>
+
+        <!-- Device Selection -->
+        <div class="flex flex-col gap-1.5">
+          <label for="deviceSelect" class="font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+            <span>Dispositivo de Cómputo (Hardware):</span>
+            <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-semibold">Mac / CPU</span>
+          </label>
+          <div class="relative">
+            <select id="deviceSelect" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer transition">
+              <option value="cpu" selected>CPU (~180ms - Recomendado en Mac)</option>
+              <option value="mps">MPS / Metal (Apple Silicon GPU)</option>
+            </select>
+          </div>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">
+            En Apple Silicon, CPU previene la latencia inicial de compilación en caliente de shaders Metal.
+          </p>
+        </div>
+
+        <!-- Info / Tip card -->
+        <div class="p-3 rounded-xl bg-brand-50/60 dark:bg-brand-950/30 border border-brand-200/60 dark:border-brand-900/50 flex items-start space-x-2 text-slate-600 dark:text-slate-300">
+          <span class="text-brand-600 dark:text-brand-400 text-sm">💡</span>
+          <p class="text-[11px] leading-relaxed">
+            Laya mantiene el modelo en memoria permanente (<code class="font-mono text-brand-600 dark:text-brand-300">preload=True</code>) para procesar todas las preguntas en <b>un solo forward pass</b>.
+          </p>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+        <button type="button" onclick="closeConfigModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition shadow-sm">
+          Aceptar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: PRESETS EXPLORER (OPENS ON BUTTON, HIDES ON SELECTION OR CLOSE) -->
+  <div id="presetsModal" style="z-index: 60;" onclick="if(event.target === this) closePresetsModal()" class="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col gap-4 max-h-[85vh] overflow-y-auto custom-scrollbar animate-in fade-in duration-150">
+      
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-900/60 text-brand-700 dark:text-brand-300 flex items-center justify-center text-lg shadow-sm">
+            📚
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-slate-900 dark:text-white">Plantillas Oficiales de Laya</h3>
+            <p class="text-xs text-slate-500">Selecciona una plantilla para cargarla en tu sesión. Se ocultará automáticamente al aplicar.</p>
+          </div>
+        </div>
+        <button onclick="closePresetsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Presets Grid Container -->
+      <div id="presetsGridContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-700">
+        <button onclick="closePresetsModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CATALOG EXPLORER (OPENS ON BUTTON, HIDES ON SELECTION OR CLOSE) -->
+  <div id="catalogModal" class="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col gap-4 max-h-[85vh] overflow-y-auto custom-scrollbar animate-in fade-in duration-150">
+      
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-lg shadow-sm">
+            📋
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-slate-900 dark:text-white">Catálogo de Preguntas Modulares</h3>
+            <p class="text-xs text-slate-500">Selecciona cualquier pregunta prediseñada para añadirla a tu sesión. Se cerrará automáticamente.</p>
+          </div>
+        </div>
+        <button onclick="closeCatalogModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Search input for catalog -->
+      <div class="relative">
+        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input type="text" id="catalogModalSearch" oninput="renderCatalogModalList()" placeholder="Filtrar por ID, instrucción o categoría..." class="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500">
+      </div>
+
+      <!-- Catalog Grid Container -->
+      <div id="catalogModalGridContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+        <!-- Rendered dynamically via JS -->
+      </div>
+
+      <div class="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-700">
+        <button onclick="closeCatalogModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: QUICK QUESTION TYPE SELECTOR -->
+  <div id="quickTypeModal" class="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col gap-4 animate-in fade-in duration-150">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-900/60 text-brand-700 dark:text-brand-300 flex items-center justify-center text-lg shadow-sm">
+            ⚡
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-slate-900 dark:text-white">Nueva Pregunta</h3>
+            <p class="text-xs text-slate-500">Elige el formato de decisión que deseas configurar:</p>
+          </div>
+        </div>
+        <button onclick="closeQuickTypeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 gap-2.5">
+        <!-- Choice Card -->
+        <div onclick="selectQuickType('choice')" class="p-3.5 rounded-xl border border-purple-200 dark:border-purple-800/80 bg-purple-50/60 dark:bg-purple-950/30 hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950/60 cursor-pointer transition flex items-start space-x-3 group">
+          <div class="w-9 h-9 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+            O
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-xs text-purple-950 dark:text-purple-200">Opción (choice)</span>
+              <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-purple-200/60 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">Categórico</span>
+            </div>
+            <p class="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-snug">Clasifica el texto seleccionando entre múltiples opciones con criterios personalizados para cada rama.</p>
+          </div>
+        </div>
+
+        <!-- Score Card -->
+        <div onclick="selectQuickType('score')" class="p-3.5 rounded-xl border border-blue-200 dark:border-blue-800/80 bg-blue-50/60 dark:bg-blue-950/30 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/60 cursor-pointer transition flex items-start space-x-3 group">
+          <div class="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+            E
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-xs text-blue-950 dark:text-blue-200">Escala (score)</span>
+              <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-blue-200/60 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">Gradual</span>
+            </div>
+            <p class="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-snug">Calcula una puntuación continua sobre una escala discreta o rúbrica ordenada de niveles (0 a N).</p>
+          </div>
+        </div>
+
+        <!-- Noul Card -->
+        <div onclick="selectQuickType('noul')" class="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/60 dark:bg-emerald-950/30 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 cursor-pointer transition flex items-start space-x-3 group">
+          <div class="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+            ✓
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-xs text-emerald-950 dark:text-emerald-200">Sí / No (noul)</span>
+              <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-200/60 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">Booleano</span>
+            </div>
+            <p class="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-snug">Evaluación binaria que calcula la probabilidad continua P(Sí) entre 0.0 y 1.0 con umbral del 50%.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2 border-t border-slate-200 dark:border-slate-700">
+        <button onclick="closeQuickTypeModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: QUERY HISTORY DRAWER / MODAL -->
+  <div id="historyModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col gap-4 max-h-[85vh] overflow-hidden animate-in fade-in duration-150">
+      
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-900/60 text-brand-700 dark:text-brand-300 flex items-center justify-center text-lg shadow-sm">
+            📜
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-slate-900 dark:text-white">Historial de Consultas Laya</h3>
+            <p class="text-xs text-slate-500">Historial persistente de todas las inferencias y decisiones ejecutadas.</p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="clearAllHistory()" class="px-2.5 py-1 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition font-medium">
+            Limpiar Todo
+          </button>
+          <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search Input -->
+      <div class="relative">
+        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input type="text" id="historySearchInput" oninput="renderHistoryList()" placeholder="Buscar en historial por texto de consulta, preguntas o respuestas..." class="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500">
+      </div>
+
+      <!-- History List -->
+      <div id="historyListContainer" class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2.5 pr-1 min-h-[250px]">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="flex justify-between items-center pt-3 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-400">
+        <span id="historyTotalCountText">Total: 0 consultas</span>
+        <button onclick="closeHistoryModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition">
+          Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: PRESET PREVIEW & SELECTION (Sub-modal) -->
+  <div id="presetPreviewModal" style="z-index: 80;" onclick="if(event.target === this) closePresetPreview()" class="fixed inset-0 z-[80] bg-slate-900/70 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col gap-4 max-h-[85vh] overflow-y-auto custom-scrollbar animate-in fade-in duration-150">
+      
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+        <div>
+          <h3 id="presetModalTitle" class="font-bold text-base text-slate-900 dark:text-white">Previsualizar Plantilla</h3>
+          <p id="presetModalSubtitle" class="text-xs text-slate-500">Revisa las preguntas antes de aplicarlas a tu sesión.</p>
+        </div>
+        <button type="button" onclick="closePresetPreview()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1" title="Cerrar previsualización">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Preset content list -->
+      <div id="presetQuestionsPreviewContainer" class="flex flex-col gap-2.5 text-xs">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+        <button type="button" onclick="closePresetPreview()" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+          Cancelar
+        </button>
+        <button type="button" id="applyPresetConfirmBtn" class="px-5 py-2 rounded-xl text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition shadow-sm">
+          ✓ Aplicar esta Plantilla y Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 2: QUESTION EDITOR & BUILDER (For Editing or Adding with Hierarchy) -->
+  <div id="questionEditorModal" class="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col gap-4 max-h-[90vh] overflow-y-auto custom-scrollbar animate-in fade-in duration-150">
+      
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+        <div>
+          <h3 id="editorModalTitle" class="font-bold text-base text-slate-900 dark:text-white">Editar Pregunta</h3>
+          <p class="text-xs text-slate-500">Configura la jerarquía y los criterios según el formato Laya.</p>
+        </div>
+        <button onclick="closeQuestionEditor()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="flex flex-col gap-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Identificador de la Pregunta (ID único):</label>
+          <input type="text" id="editQId" placeholder="ej: departamento, urgencia, riesgo_churn" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500 font-mono text-xs">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Tipo de Pregunta Laya:</label>
+          <select id="editQType" onchange="onEditorTypeChange()" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500 text-xs">
+            <option value="choice">choice (Opción Múltiple con Criterios Semánticos)</option>
+            <option value="score">score (Escala Ordenada de Severidad / Niveles)</option>
+            <option value="noul">noul (Pregunta Booleana Sí / No / Probabilidad)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Instrucción / Pregunta (<code class="text-brand-600 dark:text-brand-400">instructions</code>):</label>
+          <textarea id="editQInstructions" rows="2" placeholder="ej: ¿Qué departamento debe atender este caso?" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500 text-xs"></textarea>
+        </div>
+
+        <!-- Dynamic Hierarchy & Criteria Section -->
+        <div id="editorCriteriaContainer">
+          <!-- Dynamically populated based on type -->
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+        <button onclick="closeQuestionEditor()" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+          Cancelar
+        </button>
+        <button onclick="saveQuestionFromEditor()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition shadow-sm">
+          ✓ Guardar Pregunta
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 3: Laya Format Specification -->
+  <div id="specModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col gap-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+      
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+        <div>
+          <h3 class="font-bold text-base text-slate-900 dark:text-white">Especificación del Formato Laya</h3>
+          <p class="text-xs text-slate-500">Estructura estricta para cada uno de los 3 tipos soportados.</p>
+        </div>
+        <button onclick="toggleModal('specModal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="flex flex-col gap-4 text-xs text-slate-600 dark:text-slate-300">
+        <div class="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
+          <span class="font-bold text-purple-700 dark:text-purple-300">1. Tipo `choice` (Jerarquía de Opciones y Criterios):</span>
+          <p class="mt-1">Requiere un diccionario en <code>criteria</code> donde las claves son las opciones que puede retornar el modelo y los valores son descripciones semánticas que justifican cada opción.</p>
+          <pre class="mt-2 bg-slate-900 text-slate-200 p-2.5 rounded-lg text-[11px] overflow-x-auto"><code>"departamento": {
+  "type": "choice",
+  "instructions": "¿Qué departamento debe atender esto?",
+  "criteria": {
+    "facturacion": "invoices, facturas, cobros y reembolsos",
+    "soporte": "errores técnicos, caídas de servicio, bugs",
+    "ventas": "cotizaciones y planes comerciales"
+  }
+}</code></pre>
+        </div>
+
+        <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+          <span class="font-bold text-blue-700 dark:text-blue-300">2. Tipo `score` (Escalas Ordenadas por Niveles):</span>
+          <p class="mt-1">Requiere una lista en <code>criteria</code> ordenada de menor a mayor intensidad (Nivel 0, Nivel 1, Nivel 2...). Retorna el valor esperado numérico.</p>
+          <pre class="mt-2 bg-slate-900 text-slate-200 p-2.5 rounded-lg text-[11px] overflow-x-auto"><code>"urgencia": {
+  "type": "score",
+  "instructions": "¿Qué nivel de urgencia tiene?",
+  "criteria": [
+    "baja: sin prisa ni plazos estrictos",
+    "media: requiere atención pronto",
+    "bloqueante: interrupción total o pérdida financiera"
+  ]
+}</code></pre>
+        </div>
+
+        <div class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+          <span class="font-bold text-emerald-700 dark:text-emerald-300">3. Tipo `noul` (Booleano Sí / No / Probabilidad):</span>
+          <p class="mt-1">Evalúa una afirmación binaria y retorna la probabilidad <code>P(true)</code> de 0.0 a 1.0.</p>
+          <pre class="mt-2 bg-slate-900 text-slate-200 p-2.5 rounded-lg text-[11px] overflow-x-auto"><code>"amenaza_baja": {
+  "type": "noul",
+  "instructions": "¿El cliente amenaza con cancelar su servicio?"
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-700">
+        <button onclick="toggleModal('specModal')" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition">
+          Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 4: Code Preview -->
+  <div id="jsonPreviewModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col gap-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+      
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+        <div>
+          <h3 class="font-bold text-base text-slate-900 dark:text-white">Código Python con Formato Laya</h3>
+          <p class="text-xs text-slate-500">Copia este código para ejecutar exactamente estas preguntas en producción.</p>
+        </div>
+        <button onclick="toggleModal('jsonPreviewModal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="relative">
+        <button onclick="copyToClipboard('pythonExportCode')" class="absolute top-2 right-2 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold transition flex items-center space-x-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          <span id="copyBtnText">Copiar Código</span>
+        </button>
+        <pre class="bg-slate-900 text-slate-200 p-4 rounded-xl text-xs overflow-x-auto max-h-96 custom-scrollbar"><code id="pythonExportCode"></code></pre>
+      </div>
+
+      <div class="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-700">
+        <button onclick="toggleModal('jsonPreviewModal')" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition">
+          Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- JAVASCRIPT APPLICATION LOGIC -->
+  <script>
+    let activeQuestions = {};
+    let catalogList = [];
+    let samplesDict = {};
+    let presetsDict = {};
+    let editingOriginalQId = null; // Tracks question being edited
+
+    // State tracking for Most Recent Execution vs Loaded History
+    let latestExecutionResult = null;
+    let latestExecutionState = null;
+    let latestExecutionQuestions = null;
+    let latestExecutionModel = null;
+    let latestExecutionDevice = null;
+    let loadedHistoryId = null;
+    let isViewingHistoricalResult = false;
+
+    // Theme initialization
+    if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    }
+
+    function toggleModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal.classList.contains('hidden')) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        if (modalId === 'jsonPreviewModal') {
+          updatePythonExportCode();
+        }
+      } else {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'bg-emerald-600 text-white',
+        error: 'bg-red-600 text-white',
+        info: 'bg-slate-800 text-white'
+      };
+      toast.className = `${colors[type] || colors.info} px-4 py-2.5 rounded-xl shadow-lg text-xs font-medium pointer-events-auto flex items-center space-x-2 transition-all transform duration-200 translate-y-2 opacity-0`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 200);
+      }, 3500);
+    }
+
+    function copyToClipboard(elementId) {
+      const el = document.getElementById(elementId);
+      const text = el.innerText || el.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('¡Copiado al portapapeles!', 'success');
+      }).catch(err => {
+        showToast('Error al copiar: ' + err, 'error');
+      });
+    }
+
+    document.getElementById('stateInput').addEventListener('input', (e) => {
+      document.getElementById('charCount').textContent = `${e.target.value.length} caracteres`;
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        runPrediction();
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        handleGlobalEscape();
+      }
+    });
+
+    function handleGlobalEscape() {
+      // 0. Configuration Modal
+      const cfgModal = document.getElementById('configModal');
+      if (cfgModal && !cfgModal.classList.contains('hidden')) {
+        closeConfigModal();
+        return;
+      }
+
+      // 1. Question Editor form check: ask to discard if form in action!
+      const editorModal = document.getElementById('questionEditorModal');
+      if (editorModal && !editorModal.classList.contains('hidden')) {
+        const qid = (document.getElementById('editQId')?.value || '').trim();
+        const instructions = (document.getElementById('editQInstructions')?.value || '').trim();
+        if (qid || instructions) {
+          if (confirm('¿Deseas descartar los cambios no guardados en la pregunta?')) {
+            closeQuestionEditor();
+          }
+        } else {
+          closeQuestionEditor();
+        }
+        return;
+      }
+
+      // 2. Side History Search Panel
+      const sideHistory = document.getElementById('sideHistoryPanel');
+      if (sideHistory && !sideHistory.classList.contains('hidden')) {
+        closeSideHistoryPanel();
+        return;
+      }
+
+      // 3. Quick Type Modal
+      const quickModal = document.getElementById('quickTypeModal');
+      if (quickModal && !quickModal.classList.contains('hidden')) {
+        closeQuickTypeModal();
+        return;
+      }
+
+      // 4. Catalog Modal
+      const catModal = document.getElementById('catalogModal');
+      if (catModal && !catModal.classList.contains('hidden')) {
+        closeCatalogModal();
+        return;
+      }
+
+      // 5. Preset Preview Modal (Checked first so sub-modal closes before parent!)
+      const prevModal = document.getElementById('presetPreviewModal');
+      if (prevModal && !prevModal.classList.contains('hidden')) {
+        closePresetPreview();
+        return;
+      }
+
+      // 6. Presets Modal
+      const presModal = document.getElementById('presetsModal');
+      if (presModal && !presModal.classList.contains('hidden')) {
+        closePresetsModal();
+        return;
+      }
+
+      // 7. Mind Map (Canvas)
+      const mmModal = document.getElementById('mindMapModal');
+      if (mmModal && !mmModal.classList.contains('hidden')) {
+        closeMindMap();
+        return;
+      }
+
+      // 8. Other popups
+      ['specModal', 'jsonPreviewModal', 'historyModal', 'configModal'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('hidden')) {
+          el.classList.add('hidden');
+          el.classList.remove('flex');
+        }
+      });
+    }
+
+    // CONFIGURATION MODAL (Dedicated modal, never shifts or collapses layout)
+    function openConfigModal() {
+      const modal = document.getElementById('configModal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeConfigModal() {
+      const modal = document.getElementById('configModal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function toggleConfigPanel() {
+      openConfigModal();
+    }
+
+    // MODAL: CATALOG OF MODULAR QUESTIONS
+    function openCatalogModal() {
+      renderCatalogModalList();
+      const modal = document.getElementById('catalogModal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      const search = document.getElementById('catalogModalSearch');
+      if (search) {
+        search.value = '';
+        setTimeout(() => search.focus(), 50);
+      }
+    }
+
+    function closeCatalogModal() {
+      const modal = document.getElementById('catalogModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function renderCatalogModalList() {
+      const container = document.getElementById('catalogModalGridContainer');
+      if (!container) return;
+      const searchVal = (document.getElementById('catalogModalSearch')?.value || '').toLowerCase().trim();
+
+      const filtered = catalogList.filter(item => {
+        if (!searchVal) return true;
+        const name = (item.name || '').toLowerCase();
+        const id = (item.id || '').toLowerCase();
+        const cat = (item.category || '').toLowerCase();
+        const inst = (item.definition?.instructions || '').toLowerCase();
+        return name.includes(searchVal) || id.includes(searchVal) || cat.includes(searchVal) || inst.includes(searchVal);
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full py-8 text-center text-slate-400">
+            No se encontraron preguntas en el catálogo para "${searchVal}".
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      filtered.forEach(item => {
+        const qid = item.id;
+        const def = item.definition;
+        const isAlreadyAdded = !!activeQuestions[qid];
+
+        const card = document.createElement('div');
+        card.className = `p-3.5 rounded-xl border ${isAlreadyAdded ? 'border-brand-400/80 bg-brand-50/40 dark:bg-brand-950/20' : 'border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-900/50'} flex flex-col justify-between gap-2.5 transition hover:border-brand-500 shadow-sm`;
+
+        const typeBadges = {
+          choice: 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+          score: 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+          noul: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+        };
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-1">
+            <div>
+              <div class="flex items-center space-x-1.5">
+                <span class="font-mono font-bold text-slate-900 dark:text-white text-xs">${qid}</span>
+                <span class="px-1.5 py-0.2 rounded-full text-[10px] font-semibold border ${typeBadges[def.type] || ''}">${def.type}</span>
+              </div>
+              <div class="text-[10px] font-medium text-slate-400 mt-0.5">${item.category || 'General'} · ${item.name || qid}</div>
+            </div>
+            ${isAlreadyAdded ? '<span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800">Agregada</span>' : ''}
+          </div>
+
+          <div class="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-snug">
+            ${def.instructions || ''}
+          </div>
+
+          <div class="flex items-center justify-end pt-1">
+            <button onclick="addCatalogQuestionFromModal('${qid}')" class="px-3 py-1 rounded-lg text-xs font-semibold ${isAlreadyAdded ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-brand-600 hover:text-white' : 'bg-brand-600 hover:bg-brand-500 text-white'} transition shadow-sm">
+              ${isAlreadyAdded ? 'Actualizar' : '+ Agregar y Cerrar'}
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function addCatalogQuestionFromModal(qid) {
+      const found = catalogList.find(c => c.id === qid);
+      if (!found) return;
+      activeQuestions[qid] = JSON.parse(JSON.stringify(found.definition));
+      renderActiveQuestions();
+      const mmModal = document.getElementById('mindMapModal');
+      if (mmModal && !mmModal.classList.contains('hidden')) {
+        renderMindMap();
+      }
+      closeCatalogModal();
+      showToast(`Pregunta '${qid}' añadida a la sesión`, 'success');
+    }
+
+    // MODAL: QUICK QUESTION TYPE SELECTOR
+    function openQuickTypeModal() {
+      const modal = document.getElementById('quickTypeModal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeQuickTypeModal() {
+      const modal = document.getElementById('quickTypeModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function selectQuickType(type) {
+      closeQuickTypeModal();
+      openCustomCreator(type);
+    }
+
+    // Primary Tabs handle execution results (Reciente) and execution history (Historial)
+
+    let isServerReady = true;
+
+    // Check server readiness (non-blocking, never stalls the UI)
+    async function checkReadiness() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        updateReadinessUI(data);
+      } catch (err) {
+        updateReadinessUI({ ready: true, status: 'ready' });
+      }
+    }
+
+    function updateReadinessUI(data) {
+      const badge = document.getElementById('statusBadge');
+      const banner = document.getElementById('readinessBanner');
+      const runBtn = document.getElementById('runBtn');
+      const runBtnText = document.getElementById('runBtnText');
+
+      isServerReady = true;
+
+      if (badge) {
+        badge.className = 'hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 text-xs font-medium';
+        badge.innerHTML = `
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Router Listo (~130ms)</span>
+        `;
+      }
+      if (banner) banner.classList.add('hidden');
+      if (runBtn) {
+        runBtn.disabled = false;
+        runBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+      if (runBtnText) {
+        runBtnText.textContent = 'Analizar';
+      }
+    }
+
+    // Initialize App
+    async function initApp() {
+      // Start readiness check immediately
+      checkReadiness();
+
+      try {
+        const catRes = await fetch('/api/catalog');
+        const catData = await catRes.json();
+        catalogList = catData.catalog || [];
+        samplesDict = catData.samples || {};
+        renderCatalogChips();
+
+        const preRes = await fetch('/api/presets');
+        presetsDict = await preRes.json();
+        renderPresetsList();
+        updateHistoryBadge();
+        renderMainHistoryList();
+        switchPrimaryTab('reciente');
+        initMindMapListeners();
+
+        // Default: load a sample and a couple of questions
+        loadSample('facturacion');
+        
+        // Populate default questions
+        activeQuestions = {
+          "departamento": {
+            "type": "choice",
+            "instructions": "¿Qué departamento o equipo debe atender este caso?",
+            "criteria": {
+              "facturacion": "invoices, facturas, cobros duplicados, pagos y reembolsos",
+              "soporte_tecnico": "errores del sistema, bugs, caídas de servicio o problemas técnicos",
+              "otro": "cualquier otra consulta general no clasificada"
+            }
+          },
+          "urgencia": {
+            "type": "score",
+            "instructions": "¿Qué nivel de urgencia o presión de tiempo tiene la solicitud?",
+            "criteria": [
+              "Baja: consulta habitual sin prisa ni plazos estrictos",
+              "Media: requiere atención pronto pero el servicio sigue operando",
+              "Alta / Bloqueante: interrupción total, pérdida financiera o plazo límite inmediato"
+            ]
+          },
+          "riesgo_churn": {
+            "type": "noul",
+            "instructions": "¿El cliente amenaza con cancelar el plan, rescindir el contrato o cambiarse a un competidor?"
+          }
+        };
+
+        // If there's prior history, link the latest historical record as the baseline recent result
+        const existingHistory = getHistory();
+        if (existingHistory.length > 0) {
+          latestExecutionResult = existingHistory[0];
+          latestExecutionState = existingHistory[0].state || '';
+          latestExecutionQuestions = JSON.parse(JSON.stringify(existingHistory[0].questions || {}));
+          latestExecutionModel = existingHistory[0].model || 'auto';
+          latestExecutionDevice = existingHistory[0].device || 'cpu';
+        } else {
+          latestExecutionState = document.getElementById('stateInput')?.value || '';
+          latestExecutionQuestions = JSON.parse(JSON.stringify(activeQuestions));
+          latestExecutionModel = document.getElementById('modelSelect')?.value || 'auto';
+          latestExecutionDevice = document.getElementById('deviceSelect')?.value || 'cpu';
+        }
+
+        renderActiveQuestions();
+        renderCatalogChips();
+
+      } catch (err) {
+        console.error('Error inicializando:', err);
+        showToast('Error conectando con el backend: ' + err.message, 'error');
+      }
+    }
+
+    function loadSample(key) {
+      if (samplesDict[key]) {
+        document.getElementById('stateInput').value = samplesDict[key].text;
+        document.getElementById('charCount').textContent = `${samplesDict[key].text.length} caracteres`;
+        showToast(`Ejemplo cargado: ${samplesDict[key].title}`, 'info');
+      }
+    }
+
+    // PRESETS SYSTEM (OPEN ON BUTTON, AUTO-HIDE ON APPLY OR CLOSE)
+    function openPresetsModal() {
+      renderPresetsList();
+      const modal = document.getElementById('presetsModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closePresetsModal() {
+      const modal = document.getElementById('presetsModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      closePresetPreview();
+    }
+
+    function renderPresetsList() {
+      const container = document.getElementById('presetsGridContainer');
+      if (!container) return;
+      container.innerHTML = '';
+
+      for (const [key, preset] of Object.entries(presetsDict)) {
+        const card = document.createElement('div');
+        card.className = 'p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/80 hover:border-brand-500 transition flex flex-col justify-between gap-3 shadow-sm';
+        
+        const qCount = Object.keys(preset.questions || {}).length;
+        const qNames = Object.keys(preset.questions || {}).slice(0, 4).join(', ') + (qCount > 4 ? '...' : '');
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <h4 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">${preset.name}</h4>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-brand-100 dark:bg-brand-900/60 text-brand-700 dark:text-brand-300">${qCount} preguntas</span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-2 leading-relaxed">${preset.description || ''}</p>
+            <div class="text-[11px] font-mono text-slate-400 bg-white/70 dark:bg-slate-800/70 p-2 rounded-lg border border-slate-200/60 dark:border-slate-700/60 line-clamp-1">
+              ${qNames}
+            </div>
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-slate-700/80">
+            <button onclick="openPresetPreview('${key}')" class="text-xs text-brand-600 dark:text-brand-400 hover:underline font-medium">
+              Ver detalles ➔
+            </button>
+            <button onclick="applyPresetDirectly('${key}')" class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-sm transition">
+              ✓ Aplicar y Cerrar
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      }
+    }
+
+    function applyPresetDirectly(presetKey) {
+      const preset = presetsDict[presetKey];
+      if (!preset) return;
+      activeQuestions = JSON.parse(JSON.stringify(preset.questions || {}));
+      renderActiveQuestions();
+      renderCatalogChips();
+      const mmModal = document.getElementById('mindMapModal');
+      if (mmModal && !mmModal.classList.contains('hidden')) {
+        renderMindMap();
+      }
+      closePresetsModal();
+      showToast(`¡Plantilla '${preset.name}' aplicada con éxito!`, 'success');
+    }
+
+    function openPresetPreview(presetKey) {
+      const preset = presetsDict[presetKey];
+      if (!preset) return;
+
+      document.getElementById('presetModalTitle').textContent = `Plantilla: ${preset.name}`;
+      document.getElementById('presetModalSubtitle').textContent = preset.description || 'Preguntas estándar de Laya';
+
+      const container = document.getElementById('presetQuestionsPreviewContainer');
+      container.innerHTML = '';
+
+      const qs = preset.questions || {};
+      for (const [qid, qdef] of Object.entries(qs)) {
+        const item = document.createElement('div');
+        item.className = 'p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/80 flex flex-col gap-1.5';
+        
+        let hierarchyHTML = '';
+        if (qdef.type === 'choice' && qdef.criteria) {
+          hierarchyHTML = `
+            <div class="mt-1 pl-2 border-l-2 border-purple-300 dark:border-purple-800 flex flex-col gap-1 text-[11px]">
+              <span class="text-[10px] font-semibold text-purple-600 uppercase">Opciones & Criterios:</span>
+              ${Object.entries(qdef.criteria).map(([k, v]) => `
+                <div><span class="font-mono font-semibold text-purple-700 dark:text-purple-300">[${k}]</span> ➔ <span class="text-slate-500 dark:text-slate-400">${v || '(sin descripción)'}</span></div>
+              `).join('')}
+            </div>
+          `;
+        } else if (qdef.type === 'score' && qdef.criteria) {
+          hierarchyHTML = `
+            <div class="mt-1 pl-2 border-l-2 border-blue-300 dark:border-blue-800 flex flex-col gap-1 text-[11px]">
+              <span class="text-[10px] font-semibold text-blue-600 uppercase">Escala Ordenada por Niveles:</span>
+              ${qdef.criteria.map((c, i) => `
+                <div><span class="font-mono font-semibold text-blue-700 dark:text-blue-300">[Nivel ${i}]</span> ➔ <span class="text-slate-500 dark:text-slate-400">${c}</span></div>
+              `).join('')}
+            </div>
+          `;
+        } else if (qdef.type === 'noul') {
+          hierarchyHTML = `
+            <div class="mt-1 pl-2 border-l-2 border-emerald-300 dark:border-emerald-800 text-[11px] text-slate-500 dark:text-slate-400">
+              Evaluación Binaria: Retorna probabilidad P(Sí) entre 0.0 y 1.0
+            </div>
+          `;
+        }
+
+        item.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-mono font-bold text-slate-900 dark:text-white">${qid}</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] uppercase font-semibold ${
+              qdef.type === 'choice' ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300' :
+              qdef.type === 'score' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300' :
+              'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+            }">${qdef.type}</span>
+          </div>
+          <div class="text-slate-600 dark:text-slate-300 font-medium">${qdef.instructions}</div>
+          ${hierarchyHTML}
+        `;
+        container.appendChild(item);
+      }
+
+      document.getElementById('applyPresetConfirmBtn').onclick = () => {
+        applyPresetDirectly(presetKey);
+        closePresetPreview();
+      };
+
+      const prevModal = document.getElementById('presetPreviewModal');
+      if (prevModal) {
+        prevModal.classList.remove('hidden');
+        prevModal.classList.add('flex');
+      }
+    }
+
+    function closePresetPreview() {
+      const prevModal = document.getElementById('presetPreviewModal');
+      if (prevModal) {
+        prevModal.classList.add('hidden');
+        prevModal.classList.remove('flex');
+      }
+    }
+
+    // ==========================================
+    // QUERY HISTORY & PRIMARY TABS SYSTEM
+    // ==========================================
+    const HISTORY_KEY = 'laya_query_history_v1';
+
+    function getHistory() {
+      try {
+        const stored = localStorage.getItem(HISTORY_KEY);
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveToHistory(record) {
+      try {
+        if (!record.id) record.id = 'h_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        if (!record.timestamp) record.timestamp = new Date().toISOString();
+        let history = getHistory();
+        history.unshift(record); // Prepend so it remains strictly sorted by execution order (newest first)
+        if (history.length > 50) history = history.slice(0, 50);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        updateHistoryBadge();
+        renderMainHistoryList();
+      } catch (e) {
+        console.error('Error al guardar historial:', e);
+      }
+    }
+
+    function updateHistoryBadge() {
+      const count = getHistory().length;
+      const badge = document.getElementById('historyCountBadge');
+      if (badge) badge.textContent = count;
+    }
+
+    // PRIMARY TABS: [ Reciente ] vs [ Historial ]
+    function switchPrimaryTab(tabName) {
+      const btnReciente = document.getElementById('primaryTabBtnReciente');
+      const btnHistorial = document.getElementById('primaryTabBtnHistorial');
+      const contentReciente = document.getElementById('mainTabContentReciente');
+      const contentHistorial = document.getElementById('mainTabContentHistorial');
+
+      if (!btnReciente || !btnHistorial || !contentReciente || !contentHistorial) return;
+
+      if (tabName === 'reciente') {
+        btnReciente.className = 'py-1.5 px-3.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-sm border border-slate-200/80 dark:border-slate-700';
+        btnHistorial.className = 'py-1.5 px-3.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+        contentReciente.classList.remove('hidden');
+        contentHistorial.classList.add('hidden');
+      } else if (tabName === 'historial') {
+        btnHistorial.className = 'py-1.5 px-3.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-sm border border-slate-200/80 dark:border-slate-700';
+        btnReciente.className = 'py-1.5 px-3.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+        contentHistorial.classList.remove('hidden');
+        contentReciente.classList.add('hidden');
+        renderMainHistoryList();
+      }
+    }
+
+    // RENDER HISTORIAL IN STRICT EXECUTION ORDER (NO SEARCH INPUT)
+    function renderMainHistoryList() {
+      const container = document.getElementById('mainHistoryListContainer');
+      if (!container) return;
+      const history = getHistory(); // Already ordered chronologically by execution time (index 0 = most recent)
+
+      if (history.length === 0) {
+        container.innerHTML = `
+          <div class="flex flex-col items-center justify-center py-16 text-center text-slate-400">
+            <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-3 text-slate-300 dark:text-slate-500 text-xl">
+              📜
+            </div>
+            <p class="text-sm font-medium text-slate-600 dark:text-slate-300">No hay consultas en el historial</p>
+            <p class="text-xs text-slate-400 max-w-xs mt-1">Presiona "Analizar" para procesar una consulta y se guardará automáticamente aquí.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      history.forEach((item, index) => {
+        const isLoaded = (item.id === loadedHistoryId);
+        const card = document.createElement('div');
+        card.className = `p-3 rounded-xl ${
+          isLoaded 
+            ? 'bg-brand-50/50 dark:bg-brand-950/30 border-2 border-brand-500 shadow-md ring-2 ring-brand-500/20' 
+            : 'bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/80 hover:border-brand-400 dark:hover:border-brand-500'
+        } transition flex flex-col gap-2 shadow-sm`;
+
+        const d = item.timestamp ? new Date(item.timestamp) : new Date();
+        const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const dateStr = d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+        const qCount = Object.keys(item.questions || {}).length;
+
+        // Answer decision badges
+        let answersPillsHTML = '';
+        if (item.answers) {
+          answersPillsHTML = Object.entries(item.answers).map(([qid, ans]) => {
+            const val = ans.choice || (ans.score !== undefined ? ans.score : (ans.noul !== undefined ? (ans.noul >= 0.5 ? 'SÍ' : 'NO') : '-'));
+            const p = ans.answer_confidence ? Math.round(ans.answer_confidence * 100) + '%' : (ans.confidence ? Math.round(ans.confidence * 100) + '%' : '');
+            return `<span class="px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-mono text-slate-700 dark:text-slate-300"><span class="font-bold text-brand-600 dark:text-brand-400">${escapeHtml(qid)}:</span> <span class="font-semibold">${escapeHtml(String(val))}</span> ${p ? `(${p})` : ''}</span>`;
+          }).join(' ');
+        }
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between text-xs flex-wrap gap-1 pb-1 border-b ${isLoaded ? 'border-brand-200 dark:border-brand-800' : 'border-slate-200/60 dark:border-slate-700/60'}">
+            <div class="flex items-center space-x-2">
+              <span class="font-mono text-[10px] px-1.5 py-0.2 rounded ${isLoaded ? 'bg-brand-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'} font-bold">#${history.length - index}</span>
+              <span class="font-semibold text-slate-700 dark:text-slate-300 font-mono text-[11px]">${timeStr} - ${dateStr}</span>
+              <span class="px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-mono text-[10px]">⚡ ${item.elapsed_ms || 0} ms</span>
+              <span class="text-slate-400 text-[10px]">(${qCount} ${qCount === 1 ? 'pregunta' : 'preguntas'})</span>
+              ${isLoaded ? `<span class="px-1.5 py-0.2 rounded bg-brand-100 dark:bg-brand-900/80 text-brand-700 dark:text-brand-300 text-[10px] font-bold">✓ Cargada en Editor</span>` : ''}
+            </div>
+            <div class="flex items-center space-x-1.5">
+              ${isLoaded ? `
+                <button type="button" onclick="returnToRecentResult()" class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-[11px] font-semibold transition flex items-center space-x-1 shadow-sm" title="Restaurar el último resultado analizado">
+                  <span>⚡ Volver a Reciente</span>
+                </button>
+              ` : `
+                <button type="button" onclick="viewHistoryItemResult('${item.id}')" class="px-2.5 py-1 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/50 dark:hover:bg-brand-900/60 dark:text-brand-300 border border-brand-200 dark:border-brand-800 text-[11px] font-medium transition flex items-center space-x-1" title="Ver los resultados en la pestaña Reciente">
+                  <span>👁️ Ver Resultado</span>
+                </button>
+                <button type="button" onclick="loadHistoryEntry('${item.id}', false)" class="px-2 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-medium transition flex items-center space-x-1" title="Cargar este estado y preguntas en el editor">
+                  <span>🔄 Cargar</span>
+                </button>
+              `}
+              <button type="button" onclick="loadHistoryEntry('${item.id}', true)" class="px-2 py-1 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-[11px] font-semibold transition flex items-center space-x-1 shadow-sm" title="Re-ejecutar análisis">
+                <span>▶️ Re-ejecutar</span>
+              </button>
+              <button type="button" onclick="deleteHistoryEntry('${item.id}')" class="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition" title="Eliminar de historial">
+                ✕
+              </button>
+            </div>
+          </div>
+
+          <div class="text-xs text-slate-700 dark:text-slate-300 line-clamp-2 italic bg-white/80 dark:bg-slate-800/80 p-2 rounded-lg border border-slate-200/60 dark:border-slate-700/60 font-sans">
+            "${escapeHtml(item.state || '')}"
+          </div>
+
+          ${answersPillsHTML ? `<div class="flex flex-wrap gap-1.5 pt-0.5">${answersPillsHTML}</div>` : ''}
+        `;
+
+        container.appendChild(card);
+      });
+    }
+
+    // VIEW A HISTORICAL RESULT IN THE 'RECIENTE' TAB
+    function viewHistoryItemResult(id) {
+      const item = getHistory().find(h => h.id === id);
+      if (!item) return;
+
+      // Ensure baseline recent execution is preserved
+      if (!latestExecutionResult && !latestExecutionState) {
+        const hist = getHistory();
+        if (hist.length > 0) {
+          latestExecutionResult = hist[0];
+          latestExecutionState = hist[0].state || '';
+          latestExecutionQuestions = JSON.parse(JSON.stringify(hist[0].questions || {}));
+          latestExecutionModel = hist[0].model || 'auto';
+          latestExecutionDevice = hist[0].device || 'cpu';
+        } else {
+          latestExecutionState = document.getElementById('stateInput')?.value || '';
+          latestExecutionQuestions = JSON.parse(JSON.stringify(activeQuestions));
+          latestExecutionModel = document.getElementById('modelSelect')?.value || 'auto';
+          latestExecutionDevice = document.getElementById('deviceSelect')?.value || 'cpu';
+        }
+      }
+
+      loadedHistoryId = id;
+      isViewingHistoricalResult = true;
+
+      if (item.questions) {
+        activeQuestions = JSON.parse(JSON.stringify(item.questions));
+        renderActiveQuestions();
+        renderCatalogChips();
+      }
+      if (item.state) {
+        document.getElementById('stateInput').value = item.state;
+        const charCount = document.getElementById('charCount');
+        if (charCount) charCount.textContent = `${item.state.length} caracteres`;
+      }
+
+      displayResults(item);
+      updateHistoryReturnBanners(item);
+      renderMainHistoryList();
+      switchPrimaryTab('reciente');
+      showToast('Visualizando consulta del historial. Puedes volver a Reciente con el botón superior.', 'info');
+    }
+
+    function clearAllHistory() {
+      if (confirm('¿Deseas eliminar todo el historial de consultas?')) {
+        localStorage.removeItem(HISTORY_KEY);
+        loadedHistoryId = null;
+        isViewingHistoricalResult = false;
+        updateHistoryReturnBanners(null);
+        updateHistoryBadge();
+        renderMainHistoryList();
+        showToast('Historial vaciado', 'info');
+      }
+    }
+
+    function deleteHistoryEntry(id) {
+      let history = getHistory().filter(item => item.id !== id);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      if (loadedHistoryId === id) {
+        loadedHistoryId = null;
+        isViewingHistoricalResult = false;
+        updateHistoryReturnBanners(null);
+      }
+      updateHistoryBadge();
+      renderMainHistoryList();
+      showToast('Entrada eliminada del historial', 'info');
+    }
+
+    function loadHistoryEntry(id, rerun = false) {
+      const item = getHistory().find(h => h.id === id);
+      if (!item) return;
+
+      // Preserve baseline recent execution before overwriting
+      if (!latestExecutionResult && !latestExecutionState) {
+        const hist = getHistory();
+        if (hist.length > 0) {
+          latestExecutionResult = hist[0];
+          latestExecutionState = hist[0].state || '';
+          latestExecutionQuestions = JSON.parse(JSON.stringify(hist[0].questions || {}));
+          latestExecutionModel = hist[0].model || 'auto';
+          latestExecutionDevice = hist[0].device || 'cpu';
+        } else {
+          latestExecutionState = document.getElementById('stateInput')?.value || '';
+          latestExecutionQuestions = JSON.parse(JSON.stringify(activeQuestions));
+          latestExecutionModel = document.getElementById('modelSelect')?.value || 'auto';
+          latestExecutionDevice = document.getElementById('deviceSelect')?.value || 'cpu';
+        }
+      }
+
+      loadedHistoryId = id;
+      isViewingHistoricalResult = false;
+
+      document.getElementById('stateInput').value = item.state || '';
+      const charCount = document.getElementById('charCount');
+      if (charCount) charCount.textContent = `${(item.state || '').length} caracteres`;
+      if (item.model) document.getElementById('modelSelect').value = item.model;
+      if (item.device) document.getElementById('deviceSelect').value = item.device;
+      
+      activeQuestions = JSON.parse(JSON.stringify(item.questions || {}));
+      renderActiveQuestions();
+      renderCatalogChips();
+      const mmModal = document.getElementById('mindMapModal');
+      if (mmModal && !mmModal.classList.contains('hidden')) {
+        renderMindMap();
+      }
+
+      updateHistoryReturnBanners(item);
+      renderMainHistoryList();
+
+      if (rerun) {
+        showToast('Consulta cargada, ejecutando análisis...', 'info');
+        runPrediction();
+      } else {
+        showToast('Consulta cargada en el editor. Usa "⚡ Volver al resultado reciente" para regresar.', 'success');
+      }
+    }
+
+    // RETURN TO THE LATEST ACTUAL EXECUTION RESULT
+    function returnToRecentResult() {
+      if (!latestExecutionResult && !latestExecutionState) {
+        showToast('No hay resultado previo registrado.', 'info');
+        return;
+      }
+
+      // Restore input text
+      if (latestExecutionState !== null && latestExecutionState !== undefined) {
+        const stateInput = document.getElementById('stateInput');
+        if (stateInput) {
+          stateInput.value = latestExecutionState;
+          const charCount = document.getElementById('charCount');
+          if (charCount) charCount.textContent = `${latestExecutionState.length} caracteres`;
+        }
+      }
+
+      // Restore model and device
+      if (latestExecutionModel) {
+        const mSel = document.getElementById('modelSelect');
+        if (mSel) mSel.value = latestExecutionModel;
+      }
+      if (latestExecutionDevice) {
+        const dSel = document.getElementById('deviceSelect');
+        if (dSel) dSel.value = latestExecutionDevice;
+      }
+
+      // Restore active questions
+      if (latestExecutionQuestions) {
+        activeQuestions = JSON.parse(JSON.stringify(latestExecutionQuestions));
+        renderActiveQuestions();
+        renderCatalogChips();
+        const mmModal = document.getElementById('mindMapModal');
+        if (mmModal && !mmModal.classList.contains('hidden')) {
+          renderMindMap();
+        }
+      }
+
+      // Restore results display if available
+      if (latestExecutionResult) {
+        displayResults(latestExecutionResult);
+      }
+
+      // Clear loaded history state
+      loadedHistoryId = null;
+      isViewingHistoricalResult = false;
+
+      // Update banners & history card styling
+      updateHistoryReturnBanners(null);
+      renderMainHistoryList();
+
+      // Switch to Reciente primary tab
+      switchPrimaryTab('reciente');
+
+      showToast('⚡ Has vuelto al resultado más reciente', 'success');
+    }
+
+    // UPDATE BANNERS & BUTTONS LINKED TO LOADED HISTORY
+    function updateHistoryReturnBanners(item) {
+      const loadedBanner = document.getElementById('historyLoadedBanner');
+      const headerReturnBtn = document.getElementById('historyHeaderReturnBtn');
+      const recentBanner = document.getElementById('recentViewingHistoryBanner');
+      const editorReturnBtn = document.getElementById('editorReturnRecentBtn');
+
+      if (!item || !loadedHistoryId) {
+        if (loadedBanner) loadedBanner.classList.add('hidden');
+        if (headerReturnBtn) headerReturnBtn.classList.add('hidden');
+        if (recentBanner) recentBanner.classList.add('hidden');
+        if (editorReturnBtn) editorReturnBtn.classList.add('hidden');
+        return;
+      }
+
+      const d = item.timestamp ? new Date(item.timestamp) : new Date();
+      const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const dateStr = d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+      const history = getHistory();
+      const idx = history.findIndex(h => h.id === item.id);
+      const numLabel = idx >= 0 ? `#${history.length - idx}` : '';
+      const snippet = (item.state || '').slice(0, 32) + ((item.state || '').length > 32 ? '...' : '');
+      const labelText = `${numLabel} (${dateStr} ${timeStr}) - "${snippet}"`;
+
+      if (loadedBanner) {
+        const infoEl = document.getElementById('historyLoadedInfo');
+        if (infoEl) infoEl.textContent = labelText;
+        loadedBanner.classList.remove('hidden');
+      }
+      if (headerReturnBtn) {
+        headerReturnBtn.classList.remove('hidden');
+      }
+      if (editorReturnBtn) {
+        editorReturnBtn.classList.remove('hidden');
+      }
+
+      if (isViewingHistoricalResult && recentBanner) {
+        const recentInfoEl = document.getElementById('recentViewingHistoryInfo');
+        if (recentInfoEl) recentInfoEl.textContent = labelText;
+        recentBanner.classList.remove('hidden');
+      } else if (recentBanner) {
+        recentBanner.classList.add('hidden');
+      }
+    }
+
+    // ==========================================
+    // HYBRID INTERACTIVE DECISION CANVAS ENGINE
+    // ==========================================
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    let canvasNodePositions = {}; // Stores { x, y } for '__root__' and each qid
+    let mmPanX = 60;
+    let mmPanY = 60;
+    let mmZoom = 1.0;
+    let mmIsPanning = false;
+    let mmStartX = 0;
+    let mmStartY = 0;
+    let mmListenersBound = false;
+    let dragNodeId = null;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragInitX = 0;
+    let dragInitY = 0;
+    let lastPredictionResults = null;
+    let canvasViewLocked = false;
+    let selectedCanvasQuestionIds = new Set();
+
+    function openMindMap() {
+      const modal = document.getElementById('mindMapModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      renderMindMap();
+      initMindMapListeners();
+      // Ensure all nodes fit nicely in the user's viewport on open
+      setTimeout(() => {
+        fitCanvasView();
+      }, 35);
+    }
+
+    function closeMindMap() {
+      const modal = document.getElementById('mindMapModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function mindMapZoomIn() {
+      mmZoom = Math.min(2.5, Math.round((mmZoom + 0.15) * 100) / 100);
+      applyMindMapTransform();
+    }
+
+    function mindMapZoomOut() {
+      mmZoom = Math.max(0.35, Math.round((mmZoom - 0.15) * 100) / 100);
+      applyMindMapTransform();
+    }
+
+    function resetMindMapView() {
+      fitCanvasView();
+    }
+
+    function applyMindMapTransform() {
+      const world = document.getElementById('canvasWorld');
+      if (world) {
+        world.style.transform = `translate(${mmPanX}px, ${mmPanY}px) scale(${mmZoom})`;
+      }
+    }
+
+    // AJUSTAR VISTA (Auto-fit all nodes within the visible viewport)
+    function fitCanvasView() {
+      const vp = document.getElementById('mindMapViewport');
+      if (!vp) return;
+      const vpW = vp.clientWidth || window.innerWidth;
+      const vpH = vp.clientHeight || (window.innerHeight - 56);
+
+      const keys = Object.keys(activeQuestions);
+      const rootPos = canvasNodePositions['__root__'] || { x: 50, y: 80 };
+      let minX = rootPos.x;
+      let maxX = rootPos.x + 360;
+      let minY = rootPos.y;
+      let maxY = rootPos.y + 180;
+
+      if (keys.length > 0) {
+        keys.forEach(k => {
+          const p = canvasNodePositions[k] || { x: 480, y: 80 };
+          minX = Math.min(minX, p.x);
+          maxX = Math.max(maxX, p.x + 400);
+          minY = Math.min(minY, p.y);
+          maxY = Math.max(maxY, p.y + 360);
+        });
+      }
+
+      const contentW = Math.max(450, maxX - minX + 80);
+      const contentH = Math.max(350, maxY - minY + 80);
+
+      const scaleX = (vpW - 80) / contentW;
+      const scaleY = (vpH - 80) / contentH;
+      mmZoom = Math.max(0.42, Math.min(1.0, Math.min(scaleX, scaleY)));
+
+      mmPanX = Math.round((vpW - contentW * mmZoom) / 2 - minX * mmZoom + 40);
+      mmPanY = Math.round((vpH - contentH * mmZoom) / 2 - minY * mmZoom + 40);
+
+      applyMindMapTransform();
+    }
+
+    // IR A PREGUNTAS (Camera jumps directly to questions cluster)
+    function focusOnQuestions() {
+      const keys = Object.keys(activeQuestions);
+      if (keys.length === 0) {
+        showToast('No hay preguntas configuradas todavía en el canvas.', 'info');
+        return;
+      }
+      const vp = document.getElementById('mindMapViewport');
+      const vpW = vp ? vp.clientWidth : window.innerWidth;
+
+      let minQx = Infinity;
+      let minQy = Infinity;
+      keys.forEach(k => {
+        const p = canvasNodePositions[k] || { x: 500, y: 80 };
+        minQx = Math.min(minQx, p.x);
+        minQy = Math.min(minQy, p.y);
+      });
+
+      mmZoom = Math.max(0.75, Math.min(1.1, mmZoom));
+      mmPanX = Math.round(Math.max(40, (vpW * 0.12) - (minQx * mmZoom)));
+      mmPanY = Math.round(60 - (minQy * mmZoom));
+      applyMindMapTransform();
+      showToast('Vista enfocada en las preguntas', 'info');
+    }
+
+    // IR A INPUT (Camera jumps directly to root state node)
+    function focusOnRoot() {
+      const rootPos = canvasNodePositions['__root__'] || { x: 50, y: 80 };
+      mmZoom = Math.max(0.85, Math.min(1.1, mmZoom));
+      mmPanX = Math.round(80 - (rootPos.x * mmZoom));
+      mmPanY = Math.round(80 - (rootPos.y * mmZoom));
+      applyMindMapTransform();
+      showToast('Vista enfocada en Input (Estado)', 'info');
+    }
+
+    // FIJAR / DESBLOQUEAR VISTA
+    function toggleCanvasViewLock() {
+      canvasViewLocked = !canvasViewLocked;
+      const btn = document.getElementById('canvasLockBtn');
+      const textSpan = document.getElementById('canvasLockBtnText');
+      const vp = document.getElementById('mindMapViewport');
+
+      if (canvasViewLocked) {
+        if (textSpan) textSpan.textContent = '🔒 Vista Fijada';
+        if (btn) {
+          btn.classList.remove('bg-slate-800', 'text-slate-300', 'hover:bg-slate-700');
+          btn.classList.add('bg-amber-600', 'text-white', 'border-amber-500', 'hover:bg-amber-500');
+        }
+        if (vp) {
+          vp.classList.remove('cursor-grab', 'active:cursor-grabbing');
+          vp.classList.add('cursor-default');
+        }
+        showToast('Vista fijada: desplazamiento y arrastre bloqueados', 'info');
+      } else {
+        if (textSpan) textSpan.textContent = '🔓 Vista Libre';
+        if (btn) {
+          btn.classList.remove('bg-amber-600', 'text-white', 'border-amber-500', 'hover:bg-amber-500');
+          btn.classList.add('bg-slate-800', 'text-slate-300', 'hover:bg-slate-700');
+        }
+        if (vp) {
+          vp.classList.remove('cursor-default');
+          vp.classList.add('cursor-grab');
+        }
+        showToast('Vista libre: puedes arrastrar y mover el lienzo', 'info');
+      }
+    }
+
+    // SELECCIÓN Y BORRADO EN LOTE
+    function toggleSelectCanvasQuestion(qid, isSelected) {
+      if (isSelected) {
+        selectedCanvasQuestionIds.add(qid);
+      } else {
+        selectedCanvasQuestionIds.delete(qid);
+      }
+      const card = document.getElementById('canvas_node_' + qid);
+      if (card) {
+        if (isSelected) {
+          card.classList.add('ring-4', 'ring-red-500', 'border-red-500');
+        } else {
+          card.classList.remove('ring-4', 'ring-red-500', 'border-red-500');
+        }
+      }
+      updateCanvasSelectionUI();
+    }
+
+    function selectAllCanvasQuestions() {
+      Object.keys(activeQuestions).forEach(qid => {
+        selectedCanvasQuestionIds.add(qid);
+        const cb = document.querySelector(`.canvas-node-select-cb[data-qid="${qid}"]`);
+        if (cb) cb.checked = true;
+        const card = document.getElementById('canvas_node_' + qid);
+        if (card) card.classList.add('ring-4', 'ring-red-500', 'border-red-500');
+      });
+      updateCanvasSelectionUI();
+    }
+
+    function clearSelectedCanvasQuestions() {
+      selectedCanvasQuestionIds.clear();
+      document.querySelectorAll('.canvas-node-select-cb').forEach(cb => {
+        cb.checked = false;
+      });
+      document.querySelectorAll('.canvas-node').forEach(card => {
+        card.classList.remove('ring-4', 'ring-red-500', 'border-red-500');
+      });
+      updateCanvasSelectionUI();
+    }
+
+    function updateCanvasSelectionUI() {
+      const bar = document.getElementById('canvasSelectionToolbar');
+      const countSpan = document.getElementById('canvasSelectionCount');
+      const count = selectedCanvasQuestionIds.size;
+
+      if (count > 0) {
+        if (bar) {
+          bar.classList.remove('hidden');
+          bar.classList.add('flex');
+        }
+        if (countSpan) {
+          countSpan.textContent = `${count} ${count === 1 ? 'pregunta seleccionada' : 'preguntas seleccionadas'}`;
+        }
+      } else {
+        if (bar) {
+          bar.classList.add('hidden');
+          bar.classList.remove('flex');
+        }
+      }
+    }
+
+    function deleteSelectedCanvasQuestions() {
+      const count = selectedCanvasQuestionIds.size;
+      if (count === 0) return;
+
+      if (confirm(`¿Estás seguro de eliminar las ${count} preguntas seleccionadas?`)) {
+        selectedCanvasQuestionIds.forEach(qid => {
+          delete activeQuestions[qid];
+          delete canvasNodePositions[qid];
+          if (lastPredictionResults && lastPredictionResults.answers) {
+            delete lastPredictionResults.answers[qid];
+          }
+        });
+
+        selectedCanvasQuestionIds.clear();
+        updateCanvasSelectionUI();
+        renderActiveQuestions();
+        renderCatalogChips();
+        renderMindMap();
+        showToast(`${count} preguntas eliminadas del canvas`, 'info');
+      }
+    }
+
+    function initMindMapListeners() {
+      if (mmListenersBound) return;
+      mmListenersBound = true;
+      const viewport = document.getElementById('mindMapViewport');
+      if (!viewport) return;
+
+      // Pan viewport on background mousedown (ignoring nodes and interactive elements)
+      viewport.addEventListener('mousedown', (e) => {
+        if (canvasViewLocked) return;
+        if (e.target.closest('.canvas-node') || e.target.closest('input, textarea, select, button, label')) return;
+        mmIsPanning = true;
+        mmStartX = e.clientX - mmPanX;
+        mmStartY = e.clientY - mmPanY;
+        viewport.classList.add('cursor-grabbing');
+      });
+
+      // Window mousemove handles viewport panning and node dragging
+      window.addEventListener('mousemove', (e) => {
+        if (dragNodeId) {
+          if (canvasViewLocked) return;
+          const dx = (e.clientX - dragStartX) / mmZoom;
+          const dy = (e.clientY - dragStartY) / mmZoom;
+          const newX = Math.round(dragInitX + dx);
+          const newY = Math.round(dragInitY + dy);
+          canvasNodePositions[dragNodeId] = { x: newX, y: newY };
+
+          const nodeEl = document.getElementById('canvas_node_' + dragNodeId);
+          if (nodeEl) {
+            nodeEl.style.left = newX + 'px';
+            nodeEl.style.top = newY + 'px';
+          }
+          drawCanvasConnections();
+          return;
+        }
+
+        if (mmIsPanning) {
+          if (canvasViewLocked) return;
+          mmPanX = e.clientX - mmStartX;
+          mmPanY = e.clientY - mmStartY;
+          applyMindMapTransform();
+        }
+      });
+
+      // Window mouseup ends dragging or panning
+      window.addEventListener('mouseup', () => {
+        if (dragNodeId) {
+          dragNodeId = null;
+          document.body.style.userSelect = '';
+        }
+        if (mmIsPanning) {
+          mmIsPanning = false;
+          const vp = document.getElementById('mindMapViewport');
+          if (vp && !canvasViewLocked) vp.classList.remove('cursor-grabbing');
+        }
+      });
+
+      // Zoom on mouse wheel
+      viewport.addEventListener('wheel', (e) => {
+        if (canvasViewLocked) return;
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 0.08 : -0.08;
+        mmZoom = Math.max(0.35, Math.min(2.5, Math.round((mmZoom + delta) * 100) / 100));
+        applyMindMapTransform();
+      }, { passive: false });
+    }
+
+    // Node Drag Handler (Attached to .node-drag-handle)
+    function onCanvasNodeDragStart(e, nodeId) {
+      if (canvasViewLocked) return;
+      if (e.target.closest('input, textarea, select, button, label')) return;
+      e.preventDefault();
+      dragNodeId = nodeId;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      const currentPos = canvasNodePositions[nodeId] || { x: 50, y: 50 };
+      dragInitX = currentPos.x;
+      dragInitY = currentPos.y;
+      document.body.style.userSelect = 'none';
+    }
+
+    function renderMindMap() {
+      const container = document.getElementById('canvasNodesLayer');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const keys = Object.keys(activeQuestions);
+      const statsBadge = document.getElementById('mindMapStatsBadge');
+      if (statsBadge) statsBadge.textContent = `${keys.length} preguntas`;
+
+      // 1. Position and Render Root Node (State Input)
+      if (!canvasNodePositions['__root__']) {
+        canvasNodePositions['__root__'] = { x: 50, y: 80 };
+      }
+      const rootPos = canvasNodePositions['__root__'];
+      const stateVal = document.getElementById('stateInput') ? document.getElementById('stateInput').value : '';
+
+      const rootNode = document.createElement('div');
+      rootNode.id = 'canvas_node___root__';
+      rootNode.dataset.nodeId = '__root__';
+      rootNode.className = 'canvas-node pointer-events-auto absolute select-text p-4 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border-2 border-brand-500/80 shadow-2xl text-white flex flex-col gap-2.5';
+      rootNode.style.cssText = `left: ${rootPos.x}px; top: ${rootPos.y}px; width: 360px; z-index: 10;`;
+
+      rootNode.innerHTML = `
+        <div class="node-drag-handle flex items-center justify-between cursor-move pb-2 border-b border-indigo-900/60 select-none">
+          <div class="flex items-center space-x-2">
+            <span class="text-slate-400 text-sm">⠿</span>
+            <span class="text-xs font-bold text-brand-300">🎯 Input / Estado (state)</span>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-brand-500/30 text-brand-200 border border-brand-500/40">Entrada Raíz</span>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-[10px] font-semibold text-slate-400">Contenido o prompt a evaluar (editable en vivo):</label>
+          <textarea id="canvasStateTextarea" rows="4" class="w-full text-xs p-2.5 rounded-xl bg-slate-950/80 border border-slate-700 focus:border-brand-400 text-slate-200 resize-none outline-none leading-relaxed transition" placeholder="Ingresa el prompt o contenido a evaluar...">${escapeHtml(stateVal)}</textarea>
+        </div>
+        <div class="flex items-center justify-between pt-1 text-[10px] text-slate-400 border-t border-indigo-900/40">
+          <span>→ Distribuye a todas las preguntas</span>
+          <span class="font-mono text-brand-400">1 Solo Paso Forward</span>
+        </div>
+      `;
+
+      // Live edit root state
+      const stateTextarea = rootNode.querySelector('#canvasStateTextarea');
+      stateTextarea.addEventListener('input', (e) => {
+        onCanvasStateChange(e.target.value);
+      });
+
+      // Drag listener for root
+      const rootHandle = rootNode.querySelector('.node-drag-handle');
+      rootHandle.addEventListener('mousedown', (e) => onCanvasNodeDragStart(e, '__root__'));
+
+      container.appendChild(rootNode);
+
+      // If no questions are configured, show placeholder node
+      if (keys.length === 0) {
+        const emptyNode = document.createElement('div');
+        emptyNode.className = 'canvas-node pointer-events-auto absolute p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-2xl text-slate-300 flex flex-col items-center text-center gap-3';
+        emptyNode.style.cssText = `left: 480px; top: 80px; width: 380px; z-index: 10;`;
+        emptyNode.innerHTML = `
+          <div class="text-3xl">🧩</div>
+          <div class="text-sm font-bold text-white">No hay preguntas en el canvas</div>
+          <p class="text-xs text-slate-400">Usa los botones superiores para añadir preguntas tipo <b>Opción</b>, <b>Escala</b> o <b>Sí/No</b>, o selecciona una del catálogo.</p>
+          <div class="flex items-center space-x-2 mt-1">
+            <button type="button" onclick="addCanvasNewQuestion('choice')" class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-sm transition">+ Opción</button>
+            <button type="button" onclick="addCanvasNewQuestion('score')" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition">+ Escala</button>
+            <button type="button" onclick="openCatalogModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition">📋 Catálogo</button>
+          </div>
+        `;
+        container.appendChild(emptyNode);
+        drawCanvasConnections();
+        return;
+      }
+
+      // 2. Render Each Question Node with full in-situ editing & selection
+      let defaultY = 60;
+      keys.forEach((qid, idx) => {
+        const q = activeQuestions[qid];
+        if (!canvasNodePositions[qid]) {
+          canvasNodePositions[qid] = { x: 480, y: defaultY };
+        }
+        const pos = canvasNodePositions[qid];
+        const isSelected = selectedCanvasQuestionIds.has(qid);
+
+        // Type color theme
+        const themes = {
+          choice: { border: '#a855f7', fillBg: 'bg-purple-950/20', badge: 'bg-purple-900/80 text-purple-200 border-purple-700', stroke: '#a855f7' },
+          score: { border: '#3b82f6', fillBg: 'bg-blue-950/20', badge: 'bg-blue-900/80 text-blue-200 border-blue-700', stroke: '#3b82f6' },
+          noul: { border: '#10b981', fillBg: 'bg-emerald-950/20', badge: 'bg-emerald-900/80 text-emerald-200 border-emerald-700', stroke: '#10b981' }
+        };
+        const theme = themes[q.type] || themes.choice;
+
+        // Prediction answer details if available
+        let resultAnswer = null;
+        if (lastPredictionResults && lastPredictionResults.answers && lastPredictionResults.answers[qid]) {
+          resultAnswer = lastPredictionResults.answers[qid];
+        }
+
+        const qCard = document.createElement('div');
+        qCard.id = 'canvas_node_' + qid;
+        qCard.dataset.nodeId = qid;
+        qCard.className = `canvas-node pointer-events-auto absolute select-text p-3.5 rounded-2xl bg-slate-900/95 border-2 shadow-2xl text-white flex flex-col gap-2.5 transition-all ${
+          isSelected ? 'ring-4 ring-red-500 border-red-500 shadow-red-500/20' : 'hover:shadow-indigo-500/10'
+        }`;
+        qCard.style.cssText = `border-color: ${isSelected ? '#ef4444' : theme.border}; left: ${pos.x}px; top: ${pos.y}px; width: 400px; z-index: 10;`;
+
+        // Inner criteria editor depending on type
+        let criteriaEditorHtml = '';
+
+        if (q.type === 'choice') {
+          const criteriaEntries = Object.entries(q.criteria || {});
+          let rowsHtml = '';
+          criteriaEntries.forEach(([k, v]) => {
+            const isWinner = resultAnswer && resultAnswer.choice === k;
+            const probVal = (resultAnswer && resultAnswer.probabilities && resultAnswer.probabilities[k] !== undefined)
+              ? Math.round(resultAnswer.probabilities[k] * 100) + '%'
+              : null;
+
+            rowsHtml += `
+              <div class="flex items-center space-x-1.5 p-1 rounded-lg bg-slate-950/70 border ${isWinner ? 'border-purple-400 bg-purple-950/40 shadow-sm' : 'border-slate-800'}">
+                <input type="text" value="${escapeHtml(k)}" data-old-key="${escapeHtml(k)}" class="canvas-choice-key w-28 px-1.5 py-1 text-xs font-mono font-bold text-purple-300 bg-slate-900 border border-slate-700 rounded outline-none focus:border-purple-400" title="Clave de opción (única)">
+                <input type="text" value="${escapeHtml(v || '')}" class="canvas-choice-val flex-1 px-2 py-1 text-xs text-slate-300 bg-slate-900 border border-slate-700 rounded outline-none focus:border-purple-400" placeholder="Criterio semántico de esta opción">
+                ${isWinner ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-200 font-mono font-bold shrink-0">✓ ${probVal || 'Elegido'}</span>` : ''}
+                <button type="button" data-qid="${escapeHtml(qid)}" data-key="${escapeHtml(k)}" onclick="deleteCanvasChoiceOption(this.dataset.qid, this.dataset.key)" class="p-1 text-slate-500 hover:text-red-400 text-xs shrink-0" title="Eliminar opción">✕</button>
+              </div>
+            `;
+          });
+
+          criteriaEditorHtml = `
+            <div class="flex flex-col gap-1.5 pt-1 border-t border-slate-800">
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="font-semibold text-purple-300 flex items-center space-x-1">
+                  <span>🎯</span>
+                  <span>Opciones y Criterios:</span>
+                </span>
+                <button type="button" data-qid="${escapeHtml(qid)}" onclick="addCanvasChoiceOption(this.dataset.qid)" class="px-2 py-0.5 rounded bg-purple-950/80 hover:bg-purple-900 border border-purple-700 text-purple-200 text-[10px] font-semibold transition shadow-sm">+ Añadir Opción</button>
+              </div>
+              <div class="flex flex-col gap-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-0.5">
+                ${rowsHtml}
+              </div>
+            </div>
+          `;
+        } else if (q.type === 'score') {
+          const levels = q.criteria || [];
+          let rowsHtml = '';
+          levels.forEach((desc, idx) => {
+            const isPredicted = resultAnswer && (resultAnswer.score === idx || resultAnswer.choice === String(idx));
+
+            rowsHtml += `
+              <div class="flex items-center space-x-1.5 p-1 rounded-lg bg-slate-950/70 border ${isPredicted ? 'border-blue-400 bg-blue-950/40 shadow-sm' : 'border-slate-800'}">
+                <span class="font-mono text-xs font-bold text-blue-400 px-1.5 shrink-0">[${idx}]</span>
+                <input type="text" value="${escapeHtml(desc || '')}" data-idx="${idx}" class="canvas-score-val flex-1 px-2 py-1 text-xs text-slate-300 bg-slate-900 border border-slate-700 rounded outline-none focus:border-blue-400" placeholder="Descripción para el nivel ${idx}">
+                ${isPredicted ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/30 text-blue-200 font-mono font-bold shrink-0">✓ Predicho</span>` : ''}
+                <button type="button" data-qid="${escapeHtml(qid)}" data-idx="${idx}" onclick="deleteCanvasScoreLevel(this.dataset.qid, parseInt(this.dataset.idx, 10))" class="p-1 text-slate-500 hover:text-red-400 text-xs shrink-0" title="Eliminar nivel">✕</button>
+              </div>
+            `;
+          });
+
+          criteriaEditorHtml = `
+            <div class="flex flex-col gap-1.5 pt-1 border-t border-slate-800">
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="font-semibold text-blue-300 flex items-center space-x-1">
+                  <span>📊</span>
+                  <span>Escala de Niveles (Menor a Mayor):</span>
+                </span>
+                <button type="button" data-qid="${escapeHtml(qid)}" onclick="addCanvasScoreLevel(this.dataset.qid)" class="px-2 py-0.5 rounded bg-blue-950/80 hover:bg-blue-900 border border-blue-700 text-blue-200 text-[10px] font-semibold transition shadow-sm">+ Añadir Nivel</button>
+              </div>
+              <div class="flex flex-col gap-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-0.5">
+                ${rowsHtml}
+              </div>
+            </div>
+          `;
+        } else if (q.type === 'noul') {
+          const pVal = resultAnswer && resultAnswer.noul !== undefined ? Math.round(resultAnswer.noul * 100) : null;
+          criteriaEditorHtml = `
+            <div class="p-2.5 rounded-xl bg-emerald-950/20 border border-emerald-800/60 text-xs flex flex-col gap-1.5 pt-1 border-t border-slate-800">
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="font-semibold text-emerald-300">Verificación Binaria (noul):</span>
+                <span class="text-[10px] text-emerald-400 font-mono">0.0 a 1.0</span>
+              </div>
+              <div class="flex items-center justify-between text-[11px] font-mono px-2 py-1 rounded bg-slate-950/80 border border-slate-800">
+                <span class="text-slate-400">[0] Falso / No</span>
+                <span class="text-emerald-400 font-bold">[1] Verdadero / Sí</span>
+              </div>
+              ${pVal !== null ? `
+                <div class="flex items-center justify-between text-xs pt-1">
+                  <span class="text-slate-400">P(Sí) Evaluada:</span>
+                  <span class="font-bold text-emerald-400 font-mono text-sm">${pVal}%</span>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }
+
+        // Result badge footer if prediction is present
+        let resultFooterHtml = '';
+        if (resultAnswer) {
+          const choiceDisplay = resultAnswer.choice || resultAnswer.score || (resultAnswer.noul !== undefined ? (resultAnswer.noul >= 0.5 ? 'SÍ' : 'NO') : '-');
+          const confDisplay = Math.round((resultAnswer.answer_confidence || resultAnswer.confidence || 0) * 100);
+          const actProb = (resultAnswer.action && resultAnswer.action.act_probability !== undefined) ? resultAnswer.action.act_probability : null;
+
+          resultFooterHtml = `
+            <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
+              <div class="flex items-center space-x-1.5 min-w-0">
+                <span class="text-amber-400 font-bold">🎯</span>
+                <span class="text-slate-400">Resultado:</span>
+                <span class="font-mono font-bold text-white truncate">${choiceDisplay}</span>
+              </div>
+              <div class="flex items-center space-x-2 text-[10px] text-slate-400 font-mono shrink-0">
+                <span>Conf: ${confDisplay}%</span>
+                ${actProb !== null ? `<span>Acción: ${actProb}</span>` : ''}
+              </div>
+            </div>
+          `;
+        }
+
+        qCard.innerHTML = `
+          <!-- Drag Handle, Selection Checkbox & Card Header -->
+          <div class="node-drag-handle flex items-center justify-between gap-2 pb-2 border-b border-slate-800 cursor-move select-none">
+            <div class="flex items-center space-x-2 min-w-0 flex-1">
+              <label class="flex items-center space-x-1 cursor-pointer select-none" title="Seleccionar para borrar o acciones en lote">
+                <input type="checkbox" data-qid="${escapeHtml(qid)}" ${isSelected ? 'checked' : ''} onchange="toggleSelectCanvasQuestion('${escapeHtml(qid)}', this.checked)" class="canvas-node-select-cb w-4 h-4 rounded text-red-600 focus:ring-red-500 bg-slate-800 border-slate-600 cursor-pointer">
+              </label>
+              <span class="text-slate-400 text-sm shrink-0" title="Arrastra para mover este nodo">⠿</span>
+              <input type="text" value="${escapeHtml(qid)}" data-original-id="${escapeHtml(qid)}" class="canvas-qid-input font-mono font-bold text-xs bg-slate-800 text-white px-2 py-0.5 rounded border border-slate-700 focus:border-brand-400 outline-none w-32 truncate" title="Haz clic para renombrar ID">
+              <select class="canvas-qtype-select text-[10px] font-mono font-semibold bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded border border-slate-700 outline-none cursor-pointer">
+                <option value="choice" ${q.type === 'choice' ? 'selected' : ''}>choice</option>
+                <option value="score" ${q.type === 'score' ? 'selected' : ''}>score</option>
+                <option value="noul" ${q.type === 'noul' ? 'selected' : ''}>noul</option>
+              </select>
+            </div>
+            <div class="flex items-center space-x-1 shrink-0">
+              <button type="button" data-qid="${escapeHtml(qid)}" onclick="deleteCanvasQuestion(this.dataset.qid)" class="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-red-950/50 transition text-xs flex items-center space-x-0.5" title="Eliminar pregunta">
+                <span>🗑️</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Instructions Field -->
+          <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-semibold text-slate-400">Instrucción para Laya (editable):</label>
+            <textarea rows="2" class="canvas-instructions-input w-full text-xs p-2 rounded-xl bg-slate-950/80 border border-slate-700 focus:border-brand-400 text-slate-200 outline-none resize-none leading-snug transition">${escapeHtml(q.instructions || '')}</textarea>
+          </div>
+
+          <!-- Criteria / Options Section -->
+          ${criteriaEditorHtml}
+
+          <!-- Result Footer -->
+          ${resultFooterHtml}
+        `;
+
+        // Bind interactive events for this question card
+        const handleEl = qCard.querySelector('.node-drag-handle');
+        handleEl.addEventListener('mousedown', (e) => onCanvasNodeDragStart(e, qid));
+
+        // Question ID rename
+        const qidInput = qCard.querySelector('.canvas-qid-input');
+        qidInput.addEventListener('change', (e) => {
+          renameCanvasQuestion(qid, e.target.value);
+        });
+
+        // Question Type change
+        const qtypeSelect = qCard.querySelector('.canvas-qtype-select');
+        qtypeSelect.addEventListener('change', (e) => {
+          changeCanvasQuestionType(qid, e.target.value);
+        });
+
+        // Instructions input
+        const instructionsInput = qCard.querySelector('.canvas-instructions-input');
+        instructionsInput.addEventListener('input', (e) => {
+          updateCanvasInstructions(qid, e.target.value);
+        });
+
+        // Choice Options events
+        if (q.type === 'choice') {
+          const keyInputs = qCard.querySelectorAll('.canvas-choice-key');
+          keyInputs.forEach(inp => {
+            inp.addEventListener('change', (e) => {
+              renameCanvasChoiceOption(qid, e.target.dataset.oldKey, e.target.value);
+            });
+          });
+
+          const valInputs = qCard.querySelectorAll('.canvas-choice-val');
+          valInputs.forEach(inp => {
+            inp.addEventListener('input', (e) => {
+              const optKey = e.target.previousElementSibling.value.trim();
+              updateCanvasChoiceCriteria(qid, optKey, e.target.value);
+            });
+          });
+        } else if (q.type === 'score') {
+          const scoreInputs = qCard.querySelectorAll('.canvas-score-val');
+          scoreInputs.forEach(inp => {
+            inp.addEventListener('input', (e) => {
+              const idx = parseInt(e.target.dataset.idx, 10);
+              updateCanvasScoreLevel(qid, idx, e.target.value);
+            });
+          });
+        }
+
+        container.appendChild(qCard);
+        defaultY += 340;
+      });
+
+      // 3. Draw Bezier connections between Root and all Question nodes
+      drawCanvasConnections();
+    }
+
+    // DRAW DYNAMIC BEZIER CONNECTIONS IN UNDERLYING SVG LAYER
+    function drawCanvasConnections() {
+      const svg = document.getElementById('canvasConnectionsSvg');
+      if (!svg) return;
+      svg.innerHTML = '';
+
+      const rootNode = document.getElementById('canvas_node___root__');
+      if (!rootNode) return;
+
+      const rootPos = canvasNodePositions['__root__'] || { x: 50, y: 80 };
+      const rootW = rootNode.offsetWidth || 360;
+      const rootH = rootNode.offsetHeight || 160;
+      const rootOutX = rootPos.x + rootW;
+      const rootOutY = rootPos.y + 60;
+
+      const keys = Object.keys(activeQuestions);
+      const themes = {
+        choice: '#a855f7',
+        score: '#3b82f6',
+        noul: '#10b981'
+      };
+
+      keys.forEach(qid => {
+        const qCard = document.getElementById('canvas_node_' + qid);
+        if (!qCard) return;
+
+        const qPos = canvasNodePositions[qid] || { x: 480, y: 80 };
+        const qInX = qPos.x;
+        const qInY = qPos.y + 24; // aligned with card header
+
+        const q = activeQuestions[qid];
+        const strokeColor = themes[q.type] || '#a855f7';
+
+        // Cubic Bezier Curve
+        const deltaX = Math.max(50, Math.abs(qInX - rootOutX) * 0.45);
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const d = `M ${rootOutX} ${rootOutY} C ${rootOutX + deltaX} ${rootOutY}, ${qInX - deltaX} ${qInY}, ${qInX} ${qInY}`;
+        path.setAttribute('d', d);
+        path.setAttribute('stroke', strokeColor);
+        path.setAttribute('stroke-width', '2.5');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('opacity', '0.75');
+        svg.appendChild(path);
+
+        // Port endpoint circles for slick node-link aesthetics
+        const endDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        endDot.setAttribute('cx', String(qInX));
+        endDot.setAttribute('cy', String(qInY));
+        endDot.setAttribute('r', '4');
+        endDot.setAttribute('fill', strokeColor);
+        svg.appendChild(endDot);
+      });
+
+      // Root start dot
+      if (keys.length > 0) {
+        const startDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        startDot.setAttribute('cx', String(rootOutX));
+        startDot.setAttribute('cy', String(rootOutY));
+        startDot.setAttribute('r', '5');
+        startDot.setAttribute('fill', '#6366f1');
+        svg.appendChild(startDot);
+      }
+    }
+
+    // CANVAS IN-SITU EDITING ACTIONS
+    function onCanvasStateChange(val) {
+      const stateInput = document.getElementById('stateInput');
+      if (stateInput) stateInput.value = val;
+      updatePythonExportCode();
+    }
+
+    function renameCanvasQuestion(oldId, newId) {
+      const sanitized = newId.trim().toLowerCase().replace(/\s+/g, '_');
+      if (!sanitized || sanitized === oldId) {
+        renderMindMap();
+        return;
+      }
+      if (activeQuestions[sanitized]) {
+        showToast(`Ya existe una pregunta con el ID '${sanitized}'`, 'error');
+        renderMindMap();
+        return;
+      }
+
+      // Rename in activeQuestions and node positions
+      activeQuestions[sanitized] = activeQuestions[oldId];
+      delete activeQuestions[oldId];
+
+      if (canvasNodePositions[oldId]) {
+        canvasNodePositions[sanitized] = canvasNodePositions[oldId];
+        delete canvasNodePositions[oldId];
+      }
+
+      if (selectedCanvasQuestionIds.has(oldId)) {
+        selectedCanvasQuestionIds.delete(oldId);
+        selectedCanvasQuestionIds.add(sanitized);
+      }
+
+      if (lastPredictionResults && lastPredictionResults.answers && lastPredictionResults.answers[oldId]) {
+        lastPredictionResults.answers[sanitized] = lastPredictionResults.answers[oldId];
+        delete lastPredictionResults.answers[oldId];
+      }
+
+      renderActiveQuestions();
+      renderCatalogChips();
+      renderMindMap();
+      updateCanvasSelectionUI();
+      showToast(`Pregunta renombrada a '${sanitized}'`, 'success');
+    }
+
+    function changeCanvasQuestionType(qid, newType) {
+      if (!activeQuestions[qid] || activeQuestions[qid].type === newType) return;
+      activeQuestions[qid].type = newType;
+
+      if (newType === 'choice' && (!activeQuestions[qid].criteria || Array.isArray(activeQuestions[qid].criteria))) {
+        activeQuestions[qid].criteria = {
+          seguro: 'No contiene amenazas ni manipulación',
+          no_seguro: 'Contiene riesgo o incumplimiento de normas'
+        };
+      } else if (newType === 'score' && (!activeQuestions[qid].criteria || !Array.isArray(activeQuestions[qid].criteria))) {
+        activeQuestions[qid].criteria = [
+          'Nivel 0: Bajo o mínimo impacto',
+          'Nivel 1: Moderado o medio',
+          'Nivel 2: Alto o crítico'
+        ];
+      } else if (newType === 'noul') {
+        delete activeQuestions[qid].criteria;
+      }
+
+      renderActiveQuestions();
+      renderMindMap();
+      showToast(`Tipo cambiado a '${newType}'`, 'info');
+    }
+
+    function updateCanvasInstructions(qid, val) {
+      if (!activeQuestions[qid]) return;
+      activeQuestions[qid].instructions = val;
+      renderActiveQuestions();
+      updatePythonExportCode();
+    }
+
+    function renameCanvasChoiceOption(qid, oldKey, newKey) {
+      if (!activeQuestions[qid] || !activeQuestions[qid].criteria) return;
+      const sanitized = newKey.trim().toLowerCase().replace(/\s+/g, '_');
+      if (!sanitized || sanitized === oldKey) {
+        renderMindMap();
+        return;
+      }
+
+      const val = activeQuestions[qid].criteria[oldKey] || '';
+      delete activeQuestions[qid].criteria[oldKey];
+      activeQuestions[qid].criteria[sanitized] = val;
+
+      renderActiveQuestions();
+      renderMindMap();
+    }
+
+    function updateCanvasChoiceCriteria(qid, key, val) {
+      if (!activeQuestions[qid] || !activeQuestions[qid].criteria) return;
+      activeQuestions[qid].criteria[key] = val;
+      renderActiveQuestions();
+      updatePythonExportCode();
+    }
+
+    function deleteCanvasChoiceOption(qid, key) {
+      if (!activeQuestions[qid] || !activeQuestions[qid].criteria) return;
+      const keys = Object.keys(activeQuestions[qid].criteria);
+      if (keys.length <= 1) {
+        showToast('Una pregunta de tipo choice requiere al menos 1 opción.', 'error');
+        return;
+      }
+      delete activeQuestions[qid].criteria[key];
+      renderActiveQuestions();
+      renderMindMap();
+    }
+
+    function addCanvasChoiceOption(qid) {
+      if (!activeQuestions[qid]) return;
+      if (!activeQuestions[qid].criteria) activeQuestions[qid].criteria = {};
+      const count = Object.keys(activeQuestions[qid].criteria).length + 1;
+      const newKey = 'opcion_' + count;
+      activeQuestions[qid].criteria[newKey] = 'Criterio para opción ' + count;
+      renderActiveQuestions();
+      renderMindMap();
+    }
+
+    function updateCanvasScoreLevel(qid, idx, val) {
+      if (!activeQuestions[qid] || !activeQuestions[qid].criteria) return;
+      activeQuestions[qid].criteria[idx] = val;
+      renderActiveQuestions();
+      updatePythonExportCode();
+    }
+
+    function deleteCanvasScoreLevel(qid, idx) {
+      if (!activeQuestions[qid] || !activeQuestions[qid].criteria) return;
+      if (activeQuestions[qid].criteria.length <= 2) {
+        showToast('Una pregunta tipo score requiere al menos 2 niveles.', 'error');
+        return;
+      }
+      activeQuestions[qid].criteria.splice(idx, 1);
+      renderActiveQuestions();
+      renderMindMap();
+    }
+
+    function addCanvasScoreLevel(qid) {
+      if (!activeQuestions[qid]) return;
+      if (!activeQuestions[qid].criteria) activeQuestions[qid].criteria = [];
+      const idx = activeQuestions[qid].criteria.length;
+      activeQuestions[qid].criteria.push(`Nivel ${idx}: Descripción de nivel`);
+      renderActiveQuestions();
+      renderMindMap();
+    }
+
+    function deleteCanvasQuestion(qid) {
+      if (!activeQuestions[qid]) return;
+      delete activeQuestions[qid];
+      delete canvasNodePositions[qid];
+      selectedCanvasQuestionIds.delete(qid);
+      if (lastPredictionResults && lastPredictionResults.answers) {
+        delete lastPredictionResults.answers[qid];
+      }
+      renderActiveQuestions();
+      renderCatalogChips();
+      renderMindMap();
+      updateCanvasSelectionUI();
+      showToast(`Pregunta '${qid}' eliminada del canvas`, 'info');
+    }
+
+    function addCanvasNewQuestion(type) {
+      const qid = `${type}_${Date.now().toString().slice(-4)}`;
+      let qDef = { type: type, instructions: 'Instrucción a evaluar por Laya' };
+
+      if (type === 'choice') {
+        qDef.criteria = {
+          opcion_a: 'Criterio descriptivo para opción A',
+          opcion_b: 'Criterio descriptivo para opción B'
+        };
+      } else if (type === 'score') {
+        qDef.criteria = [
+          'Nivel 0: Bajo o mínimo impacto',
+          'Nivel 1: Moderado o medio',
+          'Nivel 2: Alto o crítico'
+        ];
+      }
+
+      // Position neatly to the right
+      const count = Object.keys(activeQuestions).length;
+      canvasNodePositions[qid] = { x: 480, y: 60 + count * 280 };
+
+      activeQuestions[qid] = qDef;
+      renderActiveQuestions();
+      renderCatalogChips();
+      renderMindMap();
+      showToast(`Nueva pregunta '${qid}' añadida al canvas`, 'success');
+    }
+
+    // RUN PREDICTION DIRECTLY FROM CANVAS TOOLBAR
+    async function runPredictionFromCanvas() {
+      const btn = document.getElementById('canvasRunBtn');
+      if (!btn) return;
+      const originalContent = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg class="animate-spin -ml-0.5 mr-1 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>Analizando...</span>
+      `;
+
+      try {
+        await runPrediction();
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+        // Re-render canvas with answer highlights
+        renderMindMap();
+      }
+    }
+
+    // CATALOG CHIPS: Safely handle if container is present or not
+    function renderCatalogChips() {
+      // Also update catalog modal if loaded
+      renderCatalogModalList();
+      const container = document.getElementById('catalogChipsContainer');
+      if (!container) return;
+      container.innerHTML = '';
+
+      catalogList.forEach(item => {
+        const isAdded = !!activeQuestions[item.id];
+        const btn = document.createElement('button');
+        const badgeColors = {
+          choice: 'border-purple-300 text-purple-700 bg-purple-50 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800',
+          score: 'border-blue-300 text-blue-700 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
+          noul: 'border-emerald-300 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+        };
+
+        btn.className = `px-2.5 py-1 rounded-lg text-xs font-medium border transition flex items-center space-x-1.5 ${
+          isAdded 
+            ? 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600'
+            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-brand-400'
+        }`;
+
+        btn.innerHTML = `
+          <span>${isAdded ? '✓' : '+'}</span>
+          <span>${item.name}</span>
+          <span class="text-[10px] uppercase font-mono px-1 rounded border ${badgeColors[item.badge]}">${item.badge}</span>
+        `;
+
+        btn.onclick = () => {
+          // Open editor pre-filled so user can preview/edit before adding or updating!
+          openQuestionEditor(item.id, item.definition, !isAdded);
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    // QUESTION EDITOR (Creation & Edition)
+    function openQuestionEditor(qid, qdef, isNew = false) {
+      editingOriginalQId = isNew ? null : qid;
+      document.getElementById('editorModalTitle').textContent = isNew ? 'Previsualizar y Agregar Pregunta' : `Editar Pregunta: ${qid}`;
+      document.getElementById('editQId').value = qid || '';
+      document.getElementById('editQType').value = qdef ? qdef.type : 'choice';
+      document.getElementById('editQInstructions').value = qdef ? qdef.instructions : '';
+
+      renderEditorCriteriaFields(qdef ? qdef.type : 'choice', qdef ? qdef.criteria : null);
+
+      const modal = document.getElementById('questionEditorModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function openCustomCreator(type) {
+      openQuestionEditor('', { type: type, instructions: '', criteria: type === 'score' ? ['', ''] : (type === 'choice' ? {'': ''} : null) }, true);
+    }
+
+    function closeQuestionEditor() {
+      const modal = document.getElementById('questionEditorModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function onEditorTypeChange() {
+      const type = document.getElementById('editQType').value;
+      renderEditorCriteriaFields(type, null);
+    }
+
+    function renderEditorCriteriaFields(type, existingCriteria) {
+      const container = document.getElementById('editorCriteriaContainer');
+      container.innerHTML = '';
+
+      if (type === 'choice') {
+        const critObj = (existingCriteria && typeof existingCriteria === 'object' && !Array.isArray(existingCriteria))
+          ? existingCriteria
+          : { 'opcion_1': 'descripción de cuándo aplica', 'opcion_2': 'descripción' };
+
+        let rowsHTML = '';
+        for (const [k, v] of Object.entries(critObj)) {
+          rowsHTML += `
+            <div class="flex items-center space-x-2 choice-row">
+              <input type="text" placeholder="clave (ej: facturacion)" value="${k}" class="choice-key w-1/3 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 font-mono text-xs">
+              <input type="text" placeholder="criterio semántico explicativo" value="${v}" class="choice-val flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-xs">
+              <button type="button" onclick="this.parentElement.remove()" class="p-1.5 text-slate-400 hover:text-red-500">✕</button>
+            </div>
+          `;
+        }
+
+        container.innerHTML = `
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="font-semibold text-slate-700 dark:text-slate-300">Jerarquía de Opciones y Criterios:</label>
+            <button type="button" onclick="addChoiceRow()" class="text-xs text-brand-600 dark:text-brand-400 font-medium hover:underline">+ Añadir Opción</button>
+          </div>
+          <p class="text-[11px] text-slate-400 mb-2">Cada opción tiene una clave única y un criterio semántico que describe cuándo debe seleccionarse.</p>
+          <div id="choiceRowsContainer" class="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+            ${rowsHTML}
+          </div>
+        `;
+      } else if (type === 'score') {
+        const critList = (existingCriteria && Array.isArray(existingCriteria))
+          ? existingCriteria
+          : ['Nivel 0: Bajo o mínimo impacto', 'Nivel 1: Medio o moderado', 'Nivel 2: Alto o crítico'];
+
+        let rowsHTML = '';
+        critList.forEach((c, idx) => {
+          rowsHTML += `
+            <div class="flex items-center space-x-2 score-row">
+              <span class="font-mono text-[11px] font-bold text-blue-600 px-2">[${idx}]</span>
+              <input type="text" placeholder="Descripción del nivel" value="${c}" class="score-val flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-xs">
+              <button type="button" onclick="this.parentElement.remove()" class="p-1.5 text-slate-400 hover:text-red-500">✕</button>
+            </div>
+          `;
+        });
+
+        container.innerHTML = `
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="font-semibold text-slate-700 dark:text-slate-300">Escala de Niveles Ordenados (Menor a Mayor):</label>
+            <button type="button" onclick="addScoreRow()" class="text-xs text-blue-600 dark:text-blue-400 font-medium hover:underline">+ Añadir Nivel</button>
+          </div>
+          <p class="text-[11px] text-slate-400 mb-2">Define al menos 2 niveles crecientes de intensidad o gravedad.</p>
+          <div id="scoreRowsContainer" class="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+            ${rowsHTML}
+          </div>
+        `;
+      } else if (type === 'noul') {
+        container.innerHTML = `
+          <div class="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs">
+            <div class="font-semibold text-emerald-800 dark:text-emerald-200 mb-1">Estructura Binaria (noul):</div>
+            <p class="text-slate-600 dark:text-slate-300">Evalúa la veracidad de la instrucción dada y retorna la probabilidad continua <code>P(true)</code> de 0.0 a 1.0.</p>
+            <div class="mt-2 flex items-center space-x-4 text-[11px] font-mono">
+              <span class="text-slate-500">[0] Falso / No</span>
+              <span class="text-emerald-600 font-bold">[1] Verdadero / Sí</span>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function addChoiceRow() {
+      const container = document.getElementById('choiceRowsContainer');
+      const div = document.createElement('div');
+      div.className = 'flex items-center space-x-2 choice-row';
+      div.innerHTML = `
+        <input type="text" placeholder="clave" class="choice-key w-1/3 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 font-mono text-xs">
+        <input type="text" placeholder="criterio semántico" class="choice-val flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-xs">
+        <button type="button" onclick="this.parentElement.remove()" class="p-1.5 text-slate-400 hover:text-red-500">✕</button>
+      `;
+      container.appendChild(div);
+    }
+
+    function addScoreRow() {
+      const container = document.getElementById('scoreRowsContainer');
+      const idx = container.querySelectorAll('.score-row').length;
+      const div = document.createElement('div');
+      div.className = 'flex items-center space-x-2 score-row';
+      div.innerHTML = `
+        <span class="font-mono text-[11px] font-bold text-blue-600 px-2">[${idx}]</span>
+        <input type="text" placeholder="Descripción del nivel ${idx}" class="score-val flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-xs">
+        <button type="button" onclick="this.parentElement.remove()" class="p-1.5 text-slate-400 hover:text-red-500">✕</button>
+      `;
+      container.appendChild(div);
+    }
+
+    function saveQuestionFromEditor() {
+      const qid = document.getElementById('editQId').value.trim().toLowerCase().replace(/\s+/g, '_');
+      const qtype = document.getElementById('editQType').value;
+      const instructions = document.getElementById('editQInstructions').value.trim();
+
+      if (!qid) {
+        showToast('El ID de la pregunta es obligatorio.', 'error');
+        return;
+      }
+      if (!instructions) {
+        showToast('La instrucción de la pregunta es obligatoria.', 'error');
+        return;
+      }
+
+      let qDef = { type: qtype, instructions: instructions };
+
+      if (qtype === 'choice') {
+        const rows = document.querySelectorAll('#choiceRowsContainer .choice-row');
+        const criteria = {};
+        rows.forEach(row => {
+          const k = row.querySelector('.choice-key').value.trim().toLowerCase().replace(/\s+/g, '_');
+          const v = row.querySelector('.choice-val').value.trim();
+          if (k) criteria[k] = v || k;
+        });
+        if (Object.keys(criteria).length === 0) {
+          showToast('Debes ingresar al menos una opción con su criterio.', 'error');
+          return;
+        }
+        qDef.criteria = criteria;
+      } else if (qtype === 'score') {
+        const rows = document.querySelectorAll('#scoreRowsContainer .score-row');
+        const criteria = [];
+        rows.forEach(row => {
+          const v = row.querySelector('.score-val').value.trim();
+          if (v) criteria.push(v);
+        });
+        if (criteria.length < 2) {
+          showToast('Debes ingresar al menos 2 niveles para una pregunta tipo score.', 'error');
+          return;
+        }
+        qDef.criteria = criteria;
+      }
+
+      // If we edited an existing key and renamed it, delete the old key
+      if (editingOriginalQId && editingOriginalQId !== qid) {
+        delete activeQuestions[editingOriginalQId];
+      }
+
+      activeQuestions[qid] = qDef;
+      closeQuestionEditor();
+      renderActiveQuestions();
+      renderCatalogChips();
+      const mmModal = document.getElementById('mindMapModal');
+      if (mmModal && !mmModal.classList.contains('hidden')) {
+        renderMindMap();
+      }
+      showToast(`Pregunta '${qid}' guardada correctamente`, 'success');
+    }
+
+    // RENDER ACTIVE QUESTIONS (COMPACT / SUMMARIZED VIEW)
+    function renderActiveQuestions() {
+      const container = document.getElementById('activeQuestionsList');
+      const keys = Object.keys(activeQuestions);
+      document.getElementById('questionCountBadge').textContent = `${keys.length} preguntas`;
+
+      if (keys.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-slate-400 text-xs">
+            No has agregado ninguna pregunta todavía.<br>Haz clic en "📚 Plantillas" o en los botones para agregar.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      keys.forEach(qid => {
+        const q = activeQuestions[qid];
+        const card = document.createElement('div');
+        card.className = 'p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/80 hover:border-brand-400 dark:hover:border-brand-500 transition shadow-sm flex flex-col gap-1.5';
+
+        const typeBadges = {
+          choice: 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+          score: 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+          noul: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+        };
+
+        let typeLabel = q.type;
+        let summaryPillsHTML = '';
+
+        if (q.type === 'choice' && q.criteria) {
+          const opts = Object.keys(q.criteria);
+          typeLabel = `choice (${opts.length} opciones)`;
+          summaryPillsHTML = opts.map(k => `
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900/50">${k}</span>
+          `).join('');
+        } else if (q.type === 'score' && q.criteria) {
+          typeLabel = `score (${q.criteria.length} niveles)`;
+          summaryPillsHTML = q.criteria.map((c, i) => {
+            const shortC = c.split(':')[0].substring(0, 16);
+            return `<span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50">${i}:${shortC}</span>`;
+          }).join('');
+        } else if (q.type === 'noul') {
+          typeLabel = `noul (sí/no)`;
+          summaryPillsHTML = `
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50">✓ Sí / ✗ No</span>
+          `;
+        }
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between gap-1">
+            <div class="flex items-center space-x-1.5 min-w-0">
+              <span class="font-mono text-xs font-bold text-slate-900 dark:text-white truncate">${qid}</span>
+              <span class="px-1.5 py-0.2 rounded-full text-[10px] font-semibold border ${typeBadges[q.type]} shrink-0">${typeLabel}</span>
+            </div>
+            <div class="flex items-center space-x-1 shrink-0">
+              <button onclick="openQuestionEditor('${qid}', activeQuestions['${qid}'], false)" class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 hover:bg-brand-100 hover:text-brand-700 text-slate-700 dark:text-slate-300 text-[11px] font-medium transition flex items-center space-x-1" title="Editar pregunta">
+                <span>✏️</span>
+                <span>Editar</span>
+              </button>
+              <button onclick="removeQuestion('${qid}')" class="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition" title="Eliminar pregunta">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="text-xs text-slate-600 dark:text-slate-300 font-normal truncate" title="${q.instructions}">
+            ${q.instructions}
+          </div>
+          <div class="flex items-center flex-wrap gap-1 pt-0.5">
+            ${summaryPillsHTML}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function removeQuestion(qid) {
+      delete activeQuestions[qid];
+      renderActiveQuestions();
+      renderCatalogChips();
+      const mmModal = document.getElementById('mindMapModal');
+      if (mmModal && !mmModal.classList.contains('hidden')) {
+        renderMindMap();
+      }
+      showToast(`Pregunta '${qid}' eliminada`, 'info');
+    }
+
+    function clearAllQuestions() {
+      activeQuestions = {};
+      renderActiveQuestions();
+      renderCatalogChips();
+      const mmModal = document.getElementById('mindMapModal');
+      if (mmModal && !mmModal.classList.contains('hidden')) {
+        renderMindMap();
+      }
+      showToast('Todas las preguntas han sido eliminadas', 'info');
+    }
+
+    function updatePythonExportCode() {
+      const stateVal = document.getElementById('stateInput').value || '...';
+      const pyCode = `from laya import Router
+
+# Inicializa el router (preload=True mantiene el modelo en memoria para ~180ms)
+router = Router(preload=True)
+
+state = ${JSON.stringify(stateVal, null, 2)}
+
+questions = ${JSON.stringify(activeQuestions, null, 4)}
+
+# Inferencia rápida
+result = router.predict(state, questions)
+
+# Resultados
+for qid, ans in result["answers"].items():
+    print(f"[{qid}] ({ans['type']}):", ans.get("choice") or ans.get("score") or ans.get("noul"))
+`;
+      document.getElementById('pythonExportCode').textContent = pyCode;
+    }
+
+    // RESULTS SUB-TABS INSIDE 'RECIENTE': (table, detail, raw)
+    function switchResultTab(tabName) {
+      ['table', 'detail', 'raw'].forEach(t => {
+        const content = document.getElementById(`tabContent${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (content) content.classList.add('hidden');
+        if (btn) {
+          btn.className = 'py-1 px-2.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition';
+        }
+      });
+
+      const activeBtn = document.getElementById(`tabBtn${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+      const activeContent = document.getElementById(`tabContent${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+      if (activeBtn) {
+        activeBtn.className = 'py-1 px-3 rounded-lg text-xs font-bold bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 transition';
+      }
+      if (activeContent) {
+        activeContent.classList.remove('hidden');
+      }
+    }
+
+    // MAIN PREDICTION CALL
+    async function runPrediction() {
+      const state = document.getElementById('stateInput').value.trim();
+      if (!state) {
+        showToast('Por favor ingresa un contenido en el campo de texto.', 'error');
+        document.getElementById('stateInput').focus();
+        return;
+      }
+
+      if (Object.keys(activeQuestions).length === 0) {
+        showToast('Debes agregar al menos una pregunta a evaluar.', 'error');
+        return;
+      }
+
+      const runBtn = document.getElementById('runBtn');
+      const runIcon = document.getElementById('runIcon');
+      const runSpinner = document.getElementById('runSpinner');
+      const modelChoice = document.getElementById('modelSelect').value;
+      const deviceChoice = document.getElementById('deviceSelect').value;
+
+      runBtn.disabled = true;
+      runIcon.classList.add('hidden');
+      runSpinner.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            state: state,
+            questions: activeQuestions,
+            model: modelChoice,
+            device: deviceChoice
+          })
+        });
+
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.error || 'Error al ejecutar predicción.');
+        }
+
+        displayResults(data);
+
+        // Update top sticky execution timing badge
+        const topBadge = document.getElementById('topTimingBadge');
+        if (topBadge) {
+          topBadge.textContent = `⚡ ${data.elapsed_ms} ms (${data.device || 'cpu'})`;
+          topBadge.classList.remove('hidden');
+        }
+
+        // Save to Persistent History (Chronological order)
+        saveToHistory({
+          state: state,
+          questions: JSON.parse(JSON.stringify(activeQuestions)),
+          model: modelChoice,
+          device: deviceChoice,
+          elapsed_ms: data.elapsed_ms,
+          answers: data.answers,
+          routing: data.routing
+        });
+
+        // Update latest execution snapshot & reset historical tracking
+        latestExecutionResult = data;
+        latestExecutionState = state;
+        latestExecutionQuestions = JSON.parse(JSON.stringify(activeQuestions));
+        latestExecutionModel = modelChoice;
+        latestExecutionDevice = deviceChoice;
+        loadedHistoryId = null;
+        isViewingHistoricalResult = false;
+        updateHistoryReturnBanners(null);
+        renderMainHistoryList();
+
+        showToast('¡Análisis completado exitosamente!', 'success');
+
+      } catch (err) {
+        console.error(err);
+        showToast('Error: ' + err.message, 'error');
+      } finally {
+        runBtn.disabled = false;
+        runIcon.classList.remove('hidden');
+        runSpinner.classList.add('hidden');
+      }
+    }
+
+    // DISPLAY RESULTS (DEFAULT VIEW: TABLE INSIDE RECIENTE)
+    function displayResults(data) {
+      lastPredictionResults = data;
+      switchPrimaryTab('reciente');
+      const mmModal = document.getElementById('mindMapModal');
+      if (mmModal && !mmModal.classList.contains('hidden')) {
+        renderMindMap();
+      }
+
+      // 1. Timing Badge
+      const timingBadge = document.getElementById('resultTimingBadge');
+      if (timingBadge) {
+        timingBadge.textContent = `⚡ ${data.elapsed_ms} ms (${data.device || 'cpu'})`;
+        timingBadge.classList.remove('hidden');
+      }
+
+      // 2. Warning if any
+      const warningNotice = document.getElementById('warningNotice');
+      if (data.warning) {
+        document.getElementById('warningText').textContent = data.warning;
+        warningNotice.classList.remove('hidden');
+      } else {
+        warningNotice.classList.add('hidden');
+      }
+
+      // 3. Routing Box
+      const routingBox = document.getElementById('routingInfoBox');
+      if (data.routing) {
+        routingBox.classList.remove('hidden');
+        document.getElementById('routedModelBadge').textContent = data.routing.model || 'english';
+        document.getElementById('routedReasonText').textContent = data.routing.reason || 'Detección automática de Laya';
+      }
+
+      // 4. Raw JSON Tab
+      document.getElementById('rawJsonCode').textContent = JSON.stringify(data.raw || data, null, 2);
+
+      // 5. TABLA VIEW (DEFAULT ACTIVE)
+      document.getElementById('emptyTablePlaceholder').classList.add('hidden');
+      document.getElementById('tableWrapper').classList.remove('hidden');
+
+      const tableBody = document.getElementById('tableSummaryBody');
+      tableBody.innerHTML = '';
+
+      const answers = data.answers || {};
+      for (const [qid, ans] of Object.entries(answers)) {
+        const qDef = activeQuestions[qid] || {};
+        const qType = ans.type || qDef.type || 'unknown';
+
+        let decisionDisplay = '';
+        let probDisplay = '';
+        let confDisplay = `${Math.round((ans.answer_confidence || ans.confidence || 0) * 100)}%`;
+
+        if (qType === 'choice') {
+          decisionDisplay = `<span class="font-bold text-purple-700 dark:text-purple-300 font-mono bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">${ans.choice}</span>`;
+          const p = ans.probabilities ? (ans.probabilities[ans.choice] || 0) : 0;
+          probDisplay = `<span class="font-mono font-semibold">${Math.round(p * 100)}%</span>`;
+        } else if (qType === 'score') {
+          decisionDisplay = `<span class="font-bold text-blue-700 dark:text-blue-300 font-mono bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">${ans.score}</span>`;
+          probDisplay = `<span class="font-mono text-slate-500">Valor Esperado</span>`;
+        } else if (qType === 'noul') {
+          const isYes = ans.noul >= 0.5;
+          decisionDisplay = isYes
+            ? `<span class="font-bold text-emerald-700 dark:text-emerald-300 font-mono bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">SÍ</span>`
+            : `<span class="font-bold text-slate-600 dark:text-slate-400 font-mono bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">NO</span>`;
+          probDisplay = `<span class="font-mono font-semibold ${isYes ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}">${Math.round((ans.noul || 0) * 100)}%</span>`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/50 transition';
+        tr.innerHTML = `
+          <td class="py-2.5 px-2">
+            <div class="font-mono font-bold text-slate-900 dark:text-white">${qid}</div>
+            <div class="text-[11px] text-slate-400 line-clamp-1">${qDef.instructions || ''}</div>
+          </td>
+          <td class="py-2.5 px-2">
+            <span class="px-1.5 py-0.5 rounded text-[10px] uppercase font-semibold ${
+              qType === 'choice' ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300' :
+              qType === 'score' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300' :
+              'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+            }">${qType}</span>
+          </td>
+          <td class="py-2.5 px-2">${decisionDisplay}</td>
+          <td class="py-2.5 px-2">${probDisplay}</td>
+          <td class="py-2.5 px-2 text-slate-500 font-mono">${confDisplay}</td>
+        `;
+        tableBody.appendChild(tr);
+      }
+
+      // 6. DETALLE VIEW (Populate visual cards)
+      document.getElementById('emptyDetailPlaceholder').classList.add('hidden');
+      const detailContainer = document.getElementById('detailCardsContainer');
+      detailContainer.classList.remove('hidden');
+      detailContainer.innerHTML = '';
+
+      for (const [qid, ans] of Object.entries(answers)) {
+        const qDef = activeQuestions[qid] || {};
+        const card = createDetailedAnswerCard(qid, ans, qDef);
+        detailContainer.appendChild(card);
+      }
+
+      // Ensure TABLA is active by default
+      switchResultTab('table');
+    }
+
+    // Helper: Create Detailed Answer Card
+    function createDetailedAnswerCard(qid, ans, qDef) {
+      const card = document.createElement('div');
+      card.className = 'p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/80 flex flex-col gap-3 transition shadow-sm';
+
+      const qType = ans.type || qDef.type;
+      const instructions = qDef.instructions || '';
+      const confidence = ans.answer_confidence !== undefined ? ans.answer_confidence : (ans.confidence || 0);
+      const confPct = Math.round(confidence * 100);
+
+      let headerHTML = `
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="font-mono text-xs font-bold text-slate-900 dark:text-white">${qid}</span>
+            <span class="text-xs text-slate-400">·</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">${instructions}</span>
+          </div>
+          <div class="flex items-center space-x-1.5 text-xs">
+            <span class="text-[11px] text-slate-400">Confianza:</span>
+            <span class="font-semibold text-slate-700 dark:text-slate-200 font-mono">${confPct}%</span>
+          </div>
+        </div>
+      `;
+
+      let bodyHTML = '';
+
+      if (qType === 'choice') {
+        const choice = ans.choice;
+        const probs = ans.probabilities || {};
+
+        let barsHTML = '';
+        for (const [opt, pVal] of Object.entries(probs)) {
+          const isWinner = opt === choice;
+          const pct = Math.round(pVal * 100);
+          barsHTML += `
+            <div class="flex flex-col gap-1">
+              <div class="flex justify-between items-center text-xs">
+                <span class="${isWinner ? 'font-bold text-purple-700 dark:text-purple-300' : 'text-slate-600 dark:text-slate-400'}">${opt}</span>
+                <span class="font-mono ${isWinner ? 'font-bold text-purple-700 dark:text-purple-300' : 'text-slate-500'}">${pct}%</span>
+              </div>
+              <div class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-500 ${isWinner ? 'bg-gradient-to-r from-purple-500 to-indigo-500' : 'bg-slate-400 dark:bg-slate-600'}" style="width: ${pct}%"></div>
+              </div>
+            </div>
+          `;
+        }
+
+        bodyHTML = `
+          <div class="flex items-center space-x-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
+            <div class="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+              λ
+            </div>
+            <div>
+              <div class="text-[10px] uppercase font-semibold text-purple-600 dark:text-purple-400 tracking-wider">Opción Ganadora</div>
+              <div class="text-base font-extrabold text-purple-950 dark:text-purple-100 font-mono">${choice}</div>
+            </div>
+          </div>
+          <div class="flex flex-col gap-2 pt-1">
+            <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Distribución de Probabilidades:</span>
+            ${barsHTML}
+          </div>
+        `;
+      } else if (qType === 'score') {
+        const score = ans.score;
+        const probs = ans.probabilities || {};
+        const legend = ans.legend || {};
+
+        let levelsHTML = '';
+        for (const [idx, pVal] of Object.entries(probs)) {
+          const pct = Math.round(pVal * 100);
+          const desc = legend[idx] || `Nivel ${idx}`;
+          const isHighest = Math.max(...Object.values(probs)) === pVal;
+
+          levelsHTML += `
+            <div class="flex flex-col gap-1 p-2 rounded-lg ${isHighest ? 'bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800' : 'border border-transparent'}">
+              <div class="flex justify-between items-center text-xs">
+                <span class="${isHighest ? 'font-bold text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400'}">${desc}</span>
+                <span class="font-mono ${isHighest ? 'font-bold text-blue-700 dark:text-blue-300' : 'text-slate-500'}">${pct}%</span>
+              </div>
+              <div class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-500 ${isHighest ? 'bg-blue-500' : 'bg-slate-400'}" style="width: ${pct}%"></div>
+              </div>
+            </div>
+          `;
+        }
+
+        bodyHTML = `
+          <div class="flex items-center justify-between p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+            <div>
+              <div class="text-[10px] uppercase font-semibold text-blue-600 dark:text-blue-400 tracking-wider">Puntuación Calculada</div>
+              <div class="text-xl font-black text-blue-950 dark:text-blue-100 font-mono">${score}</div>
+            </div>
+            <div class="text-right text-xs text-slate-500">Escala de ${Object.keys(probs).length} niveles</div>
+          </div>
+          <div class="flex flex-col gap-1.5 pt-1">
+            <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Desglose por Niveles:</span>
+            ${levelsHTML}
+          </div>
+        `;
+      } else if (qType === 'noul') {
+        const prob = ans.noul !== undefined ? ans.noul : 0;
+        const pct = Math.round(prob * 100);
+        const isTrue = prob >= 0.5;
+
+        bodyHTML = `
+          <div class="flex items-center justify-between p-3 rounded-lg ${isTrue ? 'bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800' : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700'}">
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${isTrue ? 'bg-emerald-600 text-white' : 'bg-slate-500 text-white'}">
+                ${isTrue ? '✓' : '✗'}
+              </div>
+              <div>
+                <div class="text-[10px] uppercase font-semibold tracking-wider ${isTrue ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500'}">Resultado Booleano</div>
+                <div class="text-base font-extrabold ${isTrue ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-800 dark:text-slate-200'}">
+                  ${isTrue ? 'VERDADERO / SÍ' : 'FALSO / NO'}
+                </div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-[10px] text-slate-400 font-medium uppercase">Probabilidad P(Sí)</div>
+              <div class="text-lg font-black font-mono ${isTrue ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}">${pct}%</div>
+            </div>
+          </div>
+          <div class="flex flex-col gap-1 pt-1">
+            <div class="flex justify-between items-center text-[11px] text-slate-400">
+              <span>0% (No)</span>
+              <span class="font-medium text-slate-500">Umbral 50%</span>
+              <span>100% (Sí)</span>
+            </div>
+            <div class="relative w-full h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div class="absolute left-1/2 top-0 bottom-0 w-0.5 bg-slate-400 dark:bg-slate-500 z-10"></div>
+              <div class="h-full rounded-full transition-all duration-500 ${isTrue ? 'bg-gradient-to-r from-teal-500 to-emerald-500' : 'bg-slate-400'}" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }
+
+      card.innerHTML = headerHTML + bodyHTML;
+      return card;
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
