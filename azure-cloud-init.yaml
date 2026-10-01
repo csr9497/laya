@@ -1,0 +1,19 @@
+#cloud-config
+# ==============================================================================
+# Azure Cloud-Init: Zero-Touch Automated Deployment for Laya Studio
+# Paste this file into: Azure Portal > Create Virtual Machine > Advanced > User data
+# ==============================================================================
+
+package_upgrade: true
+packages:
+  - git
+  - curl
+  - python3
+  - ufw
+
+runcmd:
+  # 1. Habilitar puerto 8000 en ufw si está activo
+  - ufw allow 8000/tcp || true
+
+  # 2. Descargar y ejecutar el script oficial de despliegue automatizado
+  - su - azureuser -c "curl -sSL https://raw.githubusercontent.com/csr9497/laya/main/scripts/deploy.sh | bash"

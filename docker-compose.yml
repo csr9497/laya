@@ -1,0 +1,9 @@
+services:
+  laya:
+    build: .
+    container_name: laya-studio
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1

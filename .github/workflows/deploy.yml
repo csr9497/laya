@@ -1,0 +1,31 @@
+name: CD - Deploy to Azure VM
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Azure Linux VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        if: "${{ env.AZURE_VM_HOST != '' }}"
+        env:
+          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          port: ${{ secrets.AZURE_SSH_PORT || 22 }}
+          script: |
+            echo "🚀 Conectado a Azure VM. Ejecutando despliegue automatizado..."
+            if [ -f "$HOME/laya/scripts/deploy.sh" ]; then
+              bash "$HOME/laya/scripts/deploy.sh"
+            else
+              curl -sSL https://raw.githubusercontent.com/csr9497/laya/main/scripts/deploy.sh | bash
+            fi

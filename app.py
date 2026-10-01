@@ -257,7 +257,12 @@ class LayaEngine:
                         # On Apple Silicon / Mac, CPU provides consistent ~180-250ms without
                         # the 1.4s Metal JIT shader compilation delay of MPS on new token shapes.
                         import torch
-                        torch.set_num_threads(min(4, os.cpu_count() or 4))
+                        cpus = os.cpu_count() or 4
+                        torch.set_num_threads(min(8, max(2, cpus)))
+                        try:
+                            torch.set_num_interop_threads(1)
+                        except Exception:
+                            pass
                         r = Router(device=device)
                         r.load("english")
                         self._routers[device] = r
@@ -362,7 +367,9 @@ class LayaEngine:
 
         t0 = time.perf_counter()
         try:
-            result = router.predict(state, validated_q, model=model_arg)
+            import torch
+            with torch.inference_mode():
+                result = router.predict(state, validated_q, model=model_arg)
         except Exception as exc:
             # Check if it was caused by an incomplete snapshot (e.g. multilingual missing offline)
             exc_str = str(exc)
@@ -371,7 +378,9 @@ class LayaEngine:
                     "El modelo multilingüe aún no ha sido descargado en la caché local. "
                     "Se ejecutó exitosamente el análisis utilizando el modelo local en inglés como respaldo."
                 )
-                result = router.predict(state, validated_q, model="english")
+                import torch
+                with torch.inference_mode():
+                    result = router.predict(state, validated_q, model="english")
             else:
                 raise
 

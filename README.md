@@ -139,6 +139,41 @@ El repositorio incluye soporte nativo para **Dev Containers** (`.devcontainer/de
    ```
 4. Codespaces redirigirá el puerto `8000` y abrirá la pestaña **Simple Browser** con la aplicación lista para usar.
 
+## 🚀 Automatización de Despliegue en Azure
+
+El repositorio incluye automatización completa para desplegar y actualizar en segundos:
+
+### Opción A: Despliegue en 1 Línea vía Script (`scripts/deploy.sh`)
+En cualquier máquina virtual de Azure (Ubuntu / Debian), solo ejecuta:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/csr9497/laya/main/scripts/deploy.sh | bash
+```
+El script automáticamente:
+- Instala `git`, `curl`, `python3` y `uv`.
+- Clona/actualiza el repositorio.
+- Sincroniza dependencias.
+- Configura e inicia el servicio persistente `systemd` (`laya.service`).
+- Habilita el puerto `8000` en `ufw`.
+- Realiza un *healthcheck* para confirmar que la app está respondiendo.
+
+### Opción B: Aprovisionamiento "Zero-Touch" con Azure Cloud-Init
+Al crear una nueva VM en Azure Portal:
+1. Ve a la pestaña **Advanced** (Avanzado) > sección **User data** (Datos de usuario).
+2. Pega el contenido de [`azure-cloud-init.yaml`](azure-cloud-init.yaml).
+3. La máquina se encenderá con Laya Studio completamente instalado y corriendo en segundo plano sin necesidad de conectarte por SSH.
+
+### Opción C: Integración Continua / Despliegue Continuo (CI/CD con GitHub Actions)
+El archivo [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) permite que cada `git push` a la rama `main` actualice automáticamente tu VM de Azure mediante SSH configurando estos secretos en tu repositorio de GitHub:
+- `AZURE_VM_HOST`: IP pública de tu VM.
+- `AZURE_VM_USER`: Tu usuario SSH (ej: `azureuser`).
+- `AZURE_SSH_KEY`: Tu clave privada SSH.
+
+### Opción D: Contenedores (Docker & Compose)
+```bash
+docker compose up -d --build
+```
+
 ---
 
 ## 🛠️ Estructura del Proyecto
@@ -148,12 +183,19 @@ laya/
 ├── .devcontainer/
 │   └── devcontainer.json   # Definición de contenedor para Codespaces (Python 3.13, uv, Port 8000)
 ├── .github/
-│   └── workflows/ci.yml    # CI automático en GitHub Actions (Ruff + verificación)
+│   └── workflows/
+│       ├── ci.yml          # Integración continua en GitHub Actions (Ruff + verificación)
+│       └── deploy.yml      # Despliegue continuo automático a Azure VM vía SSH
 ├── .gitignore              # Exclusiones de Git (caches, entornos virtuales, temporales)
-├── app.py                  # API FastAPI/Starlette con endpoints REST (/api/predict, /api/catalog, etc.)
+├── azure-cloud-init.yaml   # Aprovisionamiento zero-touch para Azure VM
+├── Dockerfile              # Contenedor de producción multi-etapa
+├── docker-compose.yml      # Orquestación local/cloud con Docker
+├── app.py                  # API FastAPI/Starlette con endpoints REST y optimización PyTorch CPU
 ├── main.py                 # Script de prueba CLI original
 ├── static/
 │   └── index.html          # Interfaz SPA interactiva (HTML5, Tailwind CDN, Canvas Engine, Historial)
+├── scripts/
+│   └── deploy.sh           # Script de despliegue automatizado e idempotente
 ├── pyproject.toml          # Definición de dependencias con uv (laya, torch, transformers, ruff)
 ├── uv.lock                 # Lockfile multiplataforma determinista
 └── README.md               # Documentación general y manual de uso
@@ -174,11 +216,13 @@ laya/
 - [x] Submodal de detalles de plantilla con jerarquía corregida (`z-index: 80` sobre `z-index: 60`) y cierre escalonado.
 - [x] Botón y banners interactivos de **`⚡ Volver al resultado reciente`** al cargar consultas históricas.
 - [x] Configuración de despliegue en la nube mediante GitHub Codespaces y Dev Containers.
+- [x] **Control de Versiones y Repositorio Público**: Repositorio inicializado y publicado en GitHub ([`csr9497/laya`](https://github.com/csr9497/laya)).
+- [x] **Suite de Automatización de Despliegue**: Script 1-clic (`scripts/deploy.sh`), Cloud-Init (`azure-cloud-init.yaml`), CI/CD (`.github/workflows/deploy.yml`) y contenedor Docker.
+- [x] **Optimización de Inferencia en CPU Multicore**: Ajuste de hilos dinámicos y `torch.inference_mode()` para acelerar servidores Serie E / Serie D.
 
-### 📋 Pendientes / Próximos Pasos Sugeridos
-1. **Control de Versiones (Git)**:
-   - Realizar el commit inicial de los archivos preparados (`git add . && git commit -m "feat: Laya Studio interactive decision router and UI"`).
-   - Vincular con el repositorio remoto de GitHub (`git remote add origin ... && git push -u origin main`).
+### 📋 Próximos Pasos Sugeridos
+1. **Migración a VM Serie E o D en Azure**:
+   - Cambiar tamaño a `Standard_E4s_v5` o `Standard_D4s_v5` (4 vCPUs Ice Lake) para bajar la latencia a ~130-180ms.
 2. **Persistencia de Posiciones del Canvas**:
    - Guardar las coordenadas personalizadas `(x, y)` de los nodos en `localStorage` para preservar diagramas reorganizados por el usuario al recargar la página.
 3. **Exportación e Importación de Sesiones**:
